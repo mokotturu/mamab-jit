@@ -20,10 +20,12 @@ Adopted from code in: https://github.com/cvxr/CVX
 Code: Reza Ahmadzadeh 2022
 """
 from lib2to3.pytree import convert
-import numpy as np
-import cvxpy as cp
 
+import cvxpy as cp
+import numpy as np
 from scipy.optimize import minimize
+from scipy.sparse.csgraph import laplacian
+
 
 def max_degree_weights(A):
     """
@@ -281,6 +283,16 @@ def lmsc_weights(C, obj=cost, jac=obj_der):
     w_lmsc = res.x
     W_lmsc = np.eye(n) - C @ np.diag(w_lmsc) @ C.T
     return w_lmsc, W_lmsc
+
+
+def generateP(A, kappa):
+    dmax = np.max(np.sum(A, axis=0))
+    L = laplacian(A, normed=False)
+    M, _ = np.shape(A)
+    I = np.eye(M)
+
+    P = I - (kappa/dmax) * L
+    return P
 
 
 def main():

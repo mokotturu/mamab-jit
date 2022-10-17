@@ -12,6 +12,8 @@ def main():
 	N = 10
 	runs = 10000
 	T = 1000
+
+	# adjacency matrices
 	As = [
 		np.array([
 			[0, 1, 1, 1, 1],
@@ -28,6 +30,8 @@ def main():
 			[0, 0, 1, 0, 0],
 		]),
 	]
+
+	# corresponding incidence matrices
 	Is = [
 		np.array([
 			[ 1,  1,  1,  1,  0,  0,  0,  0,  0,  0],
@@ -44,6 +48,7 @@ def main():
 			[  0,  0,  0,  1],
 		]),
 	]
+
 	kappas = [0.02, 0.1, 0.3, 0.6, 0.9]
 	networks = [
 		'All-to-All',
@@ -56,11 +61,19 @@ def main():
 	SMALL_SIZE = 10
 	MEDIUM_SIZE = 14
 	LARGE_SIZE = 18
+
+	plt.rcParams["figure.figsize"] = (15, 8)
 	plt.rc('font', size=MEDIUM_SIZE)
 	plt.rc('axes', titlesize=MEDIUM_SIZE, labelsize=MEDIUM_SIZE)
 	plt.rc('xtick', labelsize=MEDIUM_SIZE)
 	plt.rc('ytick', labelsize=MEDIUM_SIZE)
+
 	fig, axs = plt.subplots(len(networks), 1, sharex=True, sharey=True)
+
+	# useful for agent wise plots
+	# colormap = plt.cm.nipy_spectral
+	# colors = [colormap(i) for i in np.linspace(0, 1, 16)]
+	# axs.set_prop_cycle('color', colors)
 
 	print(f'Simulation started at {ctime(time())}')
 
@@ -78,7 +91,14 @@ def main():
 
 		for label, P in zip(PLabels, PMats):
 			res = run(runs, N, T, trueMeans, P)
-			ax.plot(np.cumsum(np.mean(np.mean(res, axis=0), axis=0)), label=label, lw=2)
+			res = np.mean(res, axis=0) # avg over all runs
+
+			# # log all agent wise data
+			np.savetxt(f'{network}-{label}.txt', res)
+			# res = np.genfromtxt(f'{network}-{label}.txt')
+
+			# for i, agentReg in enumerate(res):
+			ax.plot(np.cumsum(np.mean(res, axis=0)), label=f'{label}', lw=2)
 
 		# subplot settings
 		ax.grid(True)
@@ -103,7 +123,7 @@ def run(runs: int, N: int, T: int, trueMeans: np.ndarray, P: np.ndarray) -> np.n
 	gamma = 2.0 	# try 1.9, 2.9
 	f = lambda t : np.sqrt(np.log(t))
 	Geta = 2.0		# try 1 - (eta ** 2)/16
-	var = 10.0		# variance for the gaussian distribution behind each arm
+	var = 1.0		# variance for the gaussian distribution behind each arm
 	M, _ = P.shape
 
 	reg = np.zeros((runs, M, T))
@@ -152,6 +172,13 @@ def generateP(A, kappa):
 	I = np.eye(M)
 
 	P = I - (kappa/dmax) * L
+
+	# print rho
+	l = np.absolute(np.linalg.eigvals(P))
+	print(f'all abs eigvals: {l}')
+	l = l[1 - l > 1e-5]
+	print(f'kappa: {kappa}, rho: {np.max(l)}')
+
 	return P
 
 
