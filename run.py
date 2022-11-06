@@ -55,6 +55,11 @@ def main():
 		'Star',
 	]
 
+	tds = np.array(
+		[-1, -1, -1, -1, -1],
+		[-1, -1, -1, -1, -1],
+	)
+
 	trueMeans = np.array([np.random.normal(0, 30, N) for _ in range(runs)])
 
 	# sizing
@@ -112,11 +117,18 @@ def main():
 	plt.show()
 
 @njit(parallel=True)
-def run(runs: int, N: int, T: int, trueMeans: np.ndarray, P: np.ndarray) -> np.ndarray:
+def run(runs: int, N: int, T: int, trueMeans: np.ndarray, P: np.ndarray, TD: np.ndarray) -> np.ndarray:
 	'''
 	Plays coopucb2 given the number of runs, number of arms, timesteps, true
 	means of arms, and the P matrix of the network. Optimized to work with
 	numba.
+
+	runs: number of runs to play the experiment for
+	N: number of arms
+	T: number of timesteps
+	trueMeans: true means of the arms
+	P: Perron matrix
+	td: timesteps after which each agent shares information; step delay (? - find a better name)
 	'''
 	sigma_g = 1		# try 10
 	# eta = 2		# try 2, 2.2, 3.2
@@ -126,15 +138,18 @@ def run(runs: int, N: int, T: int, trueMeans: np.ndarray, P: np.ndarray) -> np.n
 	var = 1.0		# variance for the gaussian distribution behind each arm
 	M, _ = P.shape
 
+	# Consensus step happens when the agent with the maximum waiting step can communicate
+	maxTD = np.max(TD)
+
 	reg = np.zeros((runs, M, T))
 
 	# run coop-ucb2 "runs" number of times
 	for run in prange(runs):
-		n = np.zeros((M, N))	# number of times an arm has been selected by each agent
-		s = np.zeros((M, N))	# cumulative expected reward
-		xsi = np.zeros((M, N))	# number of times that arm has been selected in that timestep
-		rew = np.zeros((M, N))	# reward
-		Q = np.zeros((M, N))	# estimated reward
+		n = np.zeros((M, N))			# number of times an arm has been selected by each agent
+		s = np.zeros((M, N))			# cumulative expected reward
+		xsi = np.zeros((M, N, maxTD))	# number of times that arm has been selected in that timestep
+		rew = np.zeros((M, N, maxTD))	# reward
+		Q = np.zeros((M, N))			# estimated reward
 
 		bestArm = np.max(trueMeans[run])
 
@@ -150,8 +165,9 @@ def run(runs: int, N: int, T: int, trueMeans: np.ndarray, P: np.ndarray) -> np.n
 					for i in range(N):
 						Q[k, i] = (s[k, i] / n[k, i]) + sigma_g * (np.sqrt((2 * gamma / Geta) * ((n[k, i] + f(t - 1)) / (M * n[k, i])) * (np.log(t - 1) / n[k, i])))
 
-					rew[k] = np.zeros(N)
-					xsi[k] = np.zeros(N)
+					if t % maxTD == 0:
+						rew[k] = np.zeros(N)
+						xsi[k] = np.zeros(N)
 
 					action = np.argmax(Q[k])
 					rew[k, action] = np.random.normal(trueMeans[run, action], var)
