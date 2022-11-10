@@ -9,7 +9,7 @@ from graph_optimization import fdla_weights_symmetric
 
 
 def main():
-	N = 4
+	N = 3
 	runs = 1
 	T = 1000
 
@@ -69,13 +69,13 @@ def main():
 		])
 	]
 
-	kappas = [0.02]
+	kappas = [0.3]
 	networks = [
 		'8-agent network',
 	]
 
 	# trueMeans = np.array([np.random.normal(0, 1, N) for _ in range(runs)])
-	trueMeans = np.array([[5, 10, 15, 20]])
+	trueMeans = np.array([[3, 2, 1] for _ in range(runs)])
 
 	# sizing
 	SMALL_SIZE = 10
@@ -112,7 +112,12 @@ def main():
 	print(f'Simulation started at {ctime(time())}')
 
 	P = generateP(As[0], kappa=0.3)
+
 	_, Q, sn, expl = run(runs, N, T, trueMeans, P)
+	
+	Q = np.mean(Q, axis=0)
+	sn = np.mean(sn, axis=0)
+	expl = np.mean(expl, axis=0)
 
 	for i, (axUp, axDown) in enumerate(zip(axs0, axs1)):
 		# ax.set_prop_cycle(color=[cm(1.*j/10) for j in range(10)])
@@ -155,6 +160,7 @@ def main():
 	plt.show()
 
 # @njit(parallel=True)
+@njit
 def run(runs: int, N: int, T: int, trueMeans: np.ndarray, P: np.ndarray) -> tuple:
 	'''
 	Plays coopucb2 given the number of runs, number of arms, timesteps, true
@@ -166,61 +172,63 @@ def run(runs: int, N: int, T: int, trueMeans: np.ndarray, P: np.ndarray) -> tupl
 	gamma = 2.0 	# try 1.9, 2.9
 	f = lambda t : np.sqrt(np.log(t))
 	Geta = 2.0		# try 1 - (eta ** 2)/16
-	var = 1.0		# variance for the gaussian distribution behind each arm
+	var = 3.0		# variance for the gaussian distribution behind each arm
 	M, _ = P.shape
 
 	reg = np.zeros((runs, M, T))
-	Q = np.zeros((M, N, T))	# estimated reward
-	plotQ = np.zeros((M, N, T))
-	plotExplore = np.zeros((M, N, T))
+	Q = np.zeros((runs, M, N, T))	# estimated reward
+	plotQ = np.zeros((runs, M, N, T))
+	plotExplore = np.zeros((runs, M, N, T))
 
-	print(trueMeans)
+	n = np.zeros((runs, M, N))	# number of times an arm has been selected by each agent
+	s = np.zeros((runs, M, N))	# cumulative expected reward
+	xsi = np.zeros((runs, M, N))	# number of times that arm has been selected in that timestep
+	rew = np.zeros((runs, M, N))	# reward
 
 	# run coop-ucb2 "runs" number of times
-	for run in range(runs):
-		n = np.zeros((M, N))	# number of times an arm has been selected by each agent
-		s = np.zeros((M, N))	# cumulative expected reward
-		xsi = np.zeros((M, N))	# number of times that arm has been selected in that timestep
-		rew = np.zeros((M, N))	# reward
-
+	for run in prange(runs):
+		# print(f'run {run}')
 		bestArm = np.max(trueMeans[run])
 
 		for t in range(T):
 			if t < N:
 				for k in range(M):
-					rew[k] = np.zeros(N)
-					xsi[k] = np.zeros(N)
+					rew[run, k] = np.zeros(N)
+					xsi[run, k] = np.zeros(N)
 					action = t
-					rew[k, action] = np.around(np.random.normal(trueMeans[run, action], var), 5)
+					rew[run, k, action] = np.random.normal(trueMeans[run, action], var)
 					reg[run, k, t] = bestArm - trueMeans[run, action]
-					xsi[k, action] += 1
+					xsi[run, k, action] += 1
 			else:
 				for k in range(M):
 					for i in range(N):
 						# Q[k, i, t] = (s[k, i] / n[k, i]) + sigma_g * (np.sqrt((2 * gamma / Geta) * ((n[k, i] + f(t - 1)) / (M * n[k, i])) * (np.log(t - 1) / n[k, i])))
-						x0 = s[k, i] / n[k, i]
+						x0 = s[run, k, i] / n[run, k, i]
 						x1 = 2 * gamma / Geta
-						x2 = (n[k, i] + f(t - 1)) / (M * n[k, i])
-						x3 = np.log(t - 1) / n[k, i]
-						Q[k, i, t] = x0 + sigma_g * np.sqrt(x1 * x2 * x3)
-						plotQ[k, i, t] = x0
-						plotExplore[k, i, t] = sigma_g * np.sqrt(x1 * x2 * x3)
+						x2 = (n[run, k, i] + f(t - 1)) / (M * n[run, k, i])
+						x3 = np.log(t - 1) / n[run, k, i]
+						Q[run, k, i, t] = x0 + sigma_g * np.sqrt(x1 * x2 * x3)
+						plotQ[run, k, i, t] = x0
+						plotExplore[run, k, i, t] = sigma_g * np.sqrt(x1 * x2 * x3)
 
-					rew[k] = np.zeros(N)
-					xsi[k] = np.zeros(N)
+					rew[run, k] = np.zeros(N)
+					xsi[run, k] = np.zeros(N)
 
-					action = np.argmax(Q[k, :, t])
-					rew[k, action] = np.around(np.random.normal(trueMeans[run, action], var), 5)
+					action = np.argmax(Q[run, k, :, t])
+					rew[run, k, action] = np.random.normal(trueMeans[run, action], var)
 					reg[run, k, t] = bestArm - trueMeans[run, action]
-					xsi[k, action] += 1
-
-			print('n', n)
-			print('s', s)
+					xsi[run, k, action] += 1
 
 			# update estimates using running consensus
 			for i in range(N):
-				n[:, i] = P @ (n[:, i] + xsi[:, i])
-				s[:, i] = P @ (s[:, i] + rew[:, i])
+				n[run, :, i] = P @ (n[run, :, i] + xsi[run, :, i])
+				s[run, :, i] = P @ (s[run, :, i] + rew[run, :, i])
+
+			# print(f'n{t}', n)
+			# print(f's{t}', s)
+			# print(f'xsi{t}', xsi)
+			# print(f'exp{t}', plotExplore[:, :, t])
+			# print(f'Q{t}', Q[:, :, t])
 
 	return reg, Q, plotQ, plotExplore
 
