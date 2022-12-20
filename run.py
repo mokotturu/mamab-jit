@@ -5,13 +5,13 @@ import numpy as np
 from numba import njit, prange
 from scipy.sparse.csgraph import laplacian
 
-from graph_optimization import fdla_weights_symmetric
+from graph_optimization import fdla_weights_symmetric, fmmc_weights
 
 
 def main():
-	N = 3
-	runs = 1
-	T = 1000
+	N = 2
+	runs = 10000
+	T = 100
 
 	# adjacency matrices
 	As = [
@@ -69,13 +69,16 @@ def main():
 		])
 	]
 
-	kappas = [0.3]
+	M, _ = As[0].shape
+
+	kappas = [0.02]
 	networks = [
 		'8-agent network',
 	]
 
-	# trueMeans = np.array([np.random.normal(0, 1, N) for _ in range(runs)])
-	trueMeans = np.array([[3, 2, 1] for _ in range(runs)])
+	# temp = np.array([-0.5, 0.5])
+	trueMeans = np.array([np.random.normal(0, 1, N) for _ in range(runs)])
+	# trueMeans = np.array([temp for _ in range(runs)])
 
 	# sizing
 	SMALL_SIZE = 10
@@ -104,43 +107,87 @@ def main():
 		'tab:cyan',
 	]
 
-	fig, axss = plt.subplots(2, 5, sharex=True, sharey=True, figsize=(15, 8))
-	fig.suptitle('All-to-All, Kappa = 0.3')
-	axs0 = axss[0].flatten()
-	axs1 = axss[1].flatten()
+	# fig, axss = plt.subplots(1, 5, sharex=True, sharey=True, figsize=(16, 6), constrained_layout=True)
+	plt.title('All-to-All network')
+	# for ax in fig.get_axes():
+	# 	ax.label_outer()
+	# axs0 = axss
+	# axs1 = axss[1].flatten()
 
 	print(f'Simulation started at {ctime(time())}')
 
-	P = generateP(As[0], kappa=0.3)
+	labels = [
+		'κ = 0.02',
+		'FDLA',
+		'FMMC',
+	]
 
-	_, Q, sn, expl = run(runs, N, T, trueMeans, P)
-	
-	Q = np.mean(Q, axis=0)
-	sn = np.mean(sn, axis=0)
-	expl = np.mean(expl, axis=0)
+	markers = ['o', '^', 's']
 
-	for i, (axUp, axDown) in enumerate(zip(axs0, axs1)):
+	P0 = generateP(As[0], kappa=0.02)
+	_, P1, _ = fdla_weights_symmetric(Is[0])
+	_, P2, _ = fmmc_weights(Is[0])
+
+	# P0, P1, P2 = [], [], []
+
+	for idx, P in enumerate([P0, P1, P2]):
+		_, Q, snerr, s, n = run(runs, N, T, trueMeans, P)
+
+		
+		# Q = np.mean(Q, axis=0)
+		snerr = np.mean(snerr, axis=0)
+
+		np.save(f'snerr_{idx}.npy', snerr)
+		# snerr = np.load(f'snerr_{idx}.npy')
+
+		# s = np.mean(s, axis=0)
+		# n = np.mean(n, axis=0)
+
+		# print(snerr)
+
+		# print(f's: {s}')
+		# print(f'n: {n}')
+
+		# for i, axUp in enumerate(axs0):
 		# ax.set_prop_cycle(color=[cm(1.*j/10) for j in range(10)])
-		axUp.grid(True)
-		axUp.set_title(f'Agent {i}')
-		axUp.set_xlabel('Timesteps')
-		axUp.set_ylabel('s / n')
+		plt.grid(True)
+		# plt.title(f'Agent {i}')
+		plt.xlabel('Timesteps')
+		plt.ylabel('Mean estimate error for the best arm')
+		# if i == 0:
+			# axUp.set_ylabel('s / n error')
 
-		axDown.grid(True)
-		axDown.set_title(f'Agent {i}')
-		axDown.set_xlabel('Timesteps')
-		axDown.set_ylabel('explore portion')
+		# axDown.grid(True)
+		# axDown.set_title(f'Agent {i}')
+		# axDown.set_xlabel('Timesteps')
+		# axDown.set_ylabel('s / n error')
+		# if i == 0:
+		# 	axDown.set_ylabel('s / n error')
 
-		for n in range(N):
-			axUp.plot(sn[i, n, :], label=f'Arm {n}', lw=1, linestyle='solid', color=colors[n])
-			axUp.plot([trueMeans[0][n] for _ in range(1000)], label=f'Arm {n} true mean', lw=1, linestyle='dashed', color=colors[n])
+		# for n in range(N):
+			# axUp.plot(sn[i, n, :], label=f'Arm {n}', lw=1, linestyle='solid', color=colors[n])
+			# axUp.plot([trueMeans[0][n] for _ in range(1000)], label=f'Arm {n} true mean', lw=1, linestyle='dashed', color=colors[n])
+		# for i in range(M):
+		# if i == 0:
+		# plt.plot(np.mean(snerr, axis=0), lw=1, linestyle='solid', color=colors[idx])
+		# else:
+		plt.plot(np.mean(snerr, axis=0), marker=markers[idx], markevery=5, lw=2, linestyle='solid', color=colors[idx], label=labels[idx])
+		snerr = np.mean(snerr, axis=0)
+		print(snerr)
+		argmaxidx = np.argmax(snerr)
+		sanitized_arr = snerr[argmaxidx:]
+		drop_amt = snerr[argmaxidx] / np.exp(1)
+		print(snerr[argmaxidx], drop_amt)
+		drop_amt_idx = np.argwhere(sanitized_arr < drop_amt)[0][0]
+		print("SETTLING TIME: ", drop_amt_idx, snerr[drop_amt_idx])
+		plt.axvline(argmaxidx + drop_amt_idx, color=colors[idx], linestyle='dashed', lw=2)
 
-			axDown.plot(expl[i, n, :], label=f'Arm {n}', lw=1, linestyle='solid', color=colors[n])
-			axDown.plot([trueMeans[0][n] for _ in range(1000)], label=f'Arm {n} true mean', lw=1, linestyle='dashed', color=colors[n])
+			# axDown.plot([trueMeans[0][n] for _ in range(1000)], label=f'Arm {n} true mean', lw=1, linestyle='dashed', color=colors[n])
+		plt.legend()
 		# ax.legend()
 
-	handles, labels = axs0[0].get_legend_handles_labels()
-	fig.legend(handles, labels, loc='right')
+	# handles, labels = axs0[0].get_legend_handles_labels()
+	# fig.legend(handles, labels, loc='right')
 
 	# P = fdla_weights_symmetric(Is[0])[1]
 	# _, Q = run(runs, N, T, trueMeans, P)
@@ -157,10 +204,13 @@ def main():
 
 
 	print(f'Simulation ended at {ctime(time())}')
+	plt.savefig('ata-param.svg', format='svg')
+	plt.savefig('ata-param.png', format='png')
+	plt.tight_layout()
 	plt.show()
 
-# @njit(parallel=True)
-@njit
+@njit(parallel=True)
+# @njit
 def run(runs: int, N: int, T: int, trueMeans: np.ndarray, P: np.ndarray) -> tuple:
 	'''
 	Plays coopucb2 given the number of runs, number of arms, timesteps, true
@@ -172,13 +222,16 @@ def run(runs: int, N: int, T: int, trueMeans: np.ndarray, P: np.ndarray) -> tupl
 	gamma = 2.0 	# try 1.9, 2.9
 	f = lambda t : np.sqrt(np.log(t))
 	Geta = 2.0		# try 1 - (eta ** 2)/16
-	var = 3.0		# variance for the gaussian distribution behind each arm
+	var = 1.0		# variance for the gaussian distribution behind each arm
 	M, _ = P.shape
+
+	omega = 2
 
 	reg = np.zeros((runs, M, T))
 	Q = np.zeros((runs, M, N, T))	# estimated reward
-	plotQ = np.zeros((runs, M, N, T))
-	plotExplore = np.zeros((runs, M, N, T))
+	snerr = np.zeros((runs, M, T))
+	# plotQ = np.zeros((runs, M, N, T))
+	# plotExplore = np.zeros((runs, M, N, T))
 
 	n = np.zeros((runs, M, N))	# number of times an arm has been selected by each agent
 	s = np.zeros((runs, M, N))	# cumulative expected reward
@@ -189,6 +242,7 @@ def run(runs: int, N: int, T: int, trueMeans: np.ndarray, P: np.ndarray) -> tupl
 	for run in prange(runs):
 		# print(f'run {run}')
 		bestArm = np.max(trueMeans[run])
+		bestArmIdx = np.argmax(trueMeans[run])
 
 		for t in range(T):
 			if t < N:
@@ -204,12 +258,12 @@ def run(runs: int, N: int, T: int, trueMeans: np.ndarray, P: np.ndarray) -> tupl
 					for i in range(N):
 						# Q[k, i, t] = (s[k, i] / n[k, i]) + sigma_g * (np.sqrt((2 * gamma / Geta) * ((n[k, i] + f(t - 1)) / (M * n[k, i])) * (np.log(t - 1) / n[k, i])))
 						x0 = s[run, k, i] / n[run, k, i]
-						x1 = 2 * gamma / Geta
+						# x1 = 2 * gamma / Geta
 						x2 = (n[run, k, i] + f(t - 1)) / (M * n[run, k, i])
 						x3 = np.log(t - 1) / n[run, k, i]
-						Q[run, k, i, t] = x0 + sigma_g * np.sqrt(x1 * x2 * x3)
-						plotQ[run, k, i, t] = x0
-						plotExplore[run, k, i, t] = sigma_g * np.sqrt(x1 * x2 * x3)
+						Q[run, k, i, t] = x0 + sigma_g * np.sqrt(omega * x2 * x3)
+						# plotQ[run, k, i, t] = x0
+						# plotExplore[run, k, i, t] = sigma_g * np.sqrt(omega * x2 * x3)
 
 					rew[run, k] = np.zeros(N)
 					xsi[run, k] = np.zeros(N)
@@ -218,6 +272,10 @@ def run(runs: int, N: int, T: int, trueMeans: np.ndarray, P: np.ndarray) -> tupl
 					rew[run, k, action] = np.random.normal(trueMeans[run, action], var)
 					reg[run, k, t] = bestArm - trueMeans[run, action]
 					xsi[run, k, action] += 1
+
+					# for i in range(N):
+					# print(trueMeans[run, action], s[run, k, i] / n[run, k, i])
+					snerr[run, k, t] = trueMeans[run, bestArmIdx] - (s[run, k, bestArmIdx] / n[run, k, bestArmIdx])
 
 			# update estimates using running consensus
 			for i in range(N):
@@ -230,7 +288,7 @@ def run(runs: int, N: int, T: int, trueMeans: np.ndarray, P: np.ndarray) -> tupl
 			# print(f'exp{t}', plotExplore[:, :, t])
 			# print(f'Q{t}', Q[:, :, t])
 
-	return reg, Q, plotQ, plotExplore
+	return reg, Q, snerr, s, n
 
 def generateP(A, kappa):
 	dmax = np.max(np.sum(A, axis=0))
