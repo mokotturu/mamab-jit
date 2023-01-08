@@ -1,0 +1,236 @@
+Simulation started at Sun Jan  8 02:20:09 2023
+kappa: 0.02, rho: 0.9750000000000001
+kappa: 0.3, rho: 0.625
+kappa: 0.9, rho: 0.125
+===============================================================================
+                                     CVXPY                                     
+                                     v1.2.2                                    
+===============================================================================
+(CVXPY) Jan 08 02:20:09 AM: Your problem has 36 variables, 5 constraints, and 0 parameters.
+(CVXPY) Jan 08 02:20:09 AM: It is compliant with the following grammars: DCP, DQCP
+(CVXPY) Jan 08 02:20:09 AM: (If you need to solve this problem multiple times, but with different data, consider using parameters.)
+(CVXPY) Jan 08 02:20:09 AM: CVXPY will first compile your problem; then, it will invoke a numerical solver to obtain a solution.
+-------------------------------------------------------------------------------
+                                  Compilation                                  
+-------------------------------------------------------------------------------
+(CVXPY) Jan 08 02:20:09 AM: Compiling problem (target solver=SCS).
+(CVXPY) Jan 08 02:20:09 AM: Reduction chain: Dcp2Cone -> CvxAttr2Constr -> ConeMatrixStuffing -> SCS
+(CVXPY) Jan 08 02:20:09 AM: Applying reduction Dcp2Cone
+(CVXPY) Jan 08 02:20:09 AM: Applying reduction CvxAttr2Constr
+(CVXPY) Jan 08 02:20:09 AM: Applying reduction ConeMatrixStuffing
+(CVXPY) Jan 08 02:20:09 AM: Applying reduction SCS
+(CVXPY) Jan 08 02:20:09 AM: Finished problem compilation (took 2.151e-02 seconds).
+-------------------------------------------------------------------------------
+                                Numerical solver                               
+-------------------------------------------------------------------------------
+(CVXPY) Jan 08 02:20:09 AM: Invoking solver SCS  to obtain a solution.
+------------------------------------------------------------------
+	       SCS v3.2.2 - Splitting Conic Solver
+	(c) Brendan O'Donoghue, Stanford University, 2012
+------------------------------------------------------------------
+problem:  variables n: 26, constraints m: 70
+cones: 	  z: primal zero / dual free vars: 25
+	  l: linear vars: 15
+	  s: psd vars: 30, ssize: 2
+settings: eps_abs: 1.0e-05, eps_rel: 1.0e-05, eps_infeas: 1.0e-07
+	  alpha: 1.50, scale: 1.00e-01, adaptive_scale: 1
+	  max_iters: 100000, normalize: 1, rho_x: 1.00e-06
+	  acceleration_lookback: 10, acceleration_interval: 10
+lin-sys:  sparse-direct-amd-qdldl
+	  nnz(A): 120, nnz(P): 0
+------------------------------------------------------------------
+ iter | pri res | dua res |   gap   |   obj   |  scale  | time (s)
+------------------------------------------------------------------
+     0| 3.99e+00  1.00e+00  3.07e+00 -1.58e+00  1.00e-01  5.99e-03 
+    50| 4.14e-08  4.56e-11  2.08e-10 -1.01e-10  1.00e-01  6.43e-03 
+------------------------------------------------------------------
+status:  solved
+timings: total: 6.43e-03s = setup: 2.56e-03s + solve: 3.87e-03s
+	 lin-sys: 2.38e-04s, cones: 3.48e-03s, accel: 3.40e-06s
+------------------------------------------------------------------
+objective = -0.000000
+------------------------------------------------------------------
+-------------------------------------------------------------------------------
+                                    Summary                                    
+-------------------------------------------------------------------------------
+(CVXPY) Jan 08 02:20:09 AM: Problem status: optimal
+(CVXPY) Jan 08 02:20:09 AM: Optimal value: 2.892e-12
+(CVXPY) Jan 08 02:20:09 AM: Compilation took 2.151e-02 seconds
+(CVXPY) Jan 08 02:20:09 AM: Solver (including time spent in interface) took 0.000e+00 seconds
+status: optimal
+Optimal value: 2.8916395399282155e-12
+Variable var1: value 2.8916395399282155e-12
+Variable var2: value [0.19999999 0.19999999 0.19999999 0.19999999 0.19999999 0.19999999
+ 0.19999999 0.19999999 0.19999999 0.19999999]
+Variable var3: value [[ 0.79999996 -0.19999999 -0.19999999 -0.19999999 -0.19999999]
+ [-0.19999999  0.79999996 -0.19999999 -0.19999999 -0.19999999]
+ [-0.19999999 -0.19999999  0.79999996 -0.19999999 -0.19999999]
+ [-0.19999999 -0.19999999 -0.19999999  0.79999996 -0.19999999]
+ [-0.19999999 -0.19999999 -0.19999999 -0.19999999  0.79999996]]
+status: optimal
+Optimal value: 2.8593117873398913e-08
+Variable var114: value [0.19999999 0.19999999 0.19999999 0.19999999 0.19999999 0.19999999
+ 0.19999999 0.19999999 0.19999999 0.19999999]
+kappa: 0.02, rho: 0.9950000000000002
+kappa: 0.3, rho: 0.9249999999999999
+kappa: 0.9, rho: 0.775
+===============================================================================
+                                     CVXPY                                     
+                                     v1.2.2                                    
+===============================================================================
+(CVXPY) Jan 08 03:11:47 AM: Your problem has 30 variables, 5 constraints, and 0 parameters.
+(CVXPY) Jan 08 03:11:47 AM: It is compliant with the following grammars: DCP, DQCP
+(CVXPY) Jan 08 03:11:47 AM: (If you need to solve this problem multiple times, but with different data, consider using parameters.)
+(CVXPY) Jan 08 03:11:47 AM: CVXPY will first compile your problem; then, it will invoke a numerical solver to obtain a solution.
+-------------------------------------------------------------------------------
+                                  Compilation                                  
+-------------------------------------------------------------------------------
+(CVXPY) Jan 08 03:11:47 AM: Compiling problem (target solver=SCS).
+(CVXPY) Jan 08 03:11:47 AM: Reduction chain: Dcp2Cone -> CvxAttr2Constr -> ConeMatrixStuffing -> SCS
+(CVXPY) Jan 08 03:11:47 AM: Applying reduction Dcp2Cone
+(CVXPY) Jan 08 03:11:47 AM: Applying reduction CvxAttr2Constr
+(CVXPY) Jan 08 03:11:47 AM: Applying reduction ConeMatrixStuffing
+(CVXPY) Jan 08 03:11:47 AM: Applying reduction SCS
+(CVXPY) Jan 08 03:11:47 AM: Finished problem compilation (took 5.159e-02 seconds).
+-------------------------------------------------------------------------------
+                                Numerical solver                               
+-------------------------------------------------------------------------------
+(CVXPY) Jan 08 03:11:47 AM: Invoking solver SCS  to obtain a solution.
+------------------------------------------------------------------
+	       SCS v3.2.2 - Splitting Conic Solver
+	(c) Brendan O'Donoghue, Stanford University, 2012
+------------------------------------------------------------------
+problem:  variables n: 20, constraints m: 64
+cones: 	  z: primal zero / dual free vars: 25
+	  l: linear vars: 9
+	  s: psd vars: 30, ssize: 2
+settings: eps_abs: 1.0e-05, eps_rel: 1.0e-05, eps_infeas: 1.0e-07
+	  alpha: 1.50, scale: 1.00e-01, adaptive_scale: 1
+	  max_iters: 100000, normalize: 1, rho_x: 1.00e-06
+	  acceleration_lookback: 10, acceleration_interval: 10
+lin-sys:  sparse-direct-amd-qdldl
+	  nnz(A): 90, nnz(P): 0
+------------------------------------------------------------------
+ iter | pri res | dua res |   gap   |   obj   |  scale  | time (s)
+------------------------------------------------------------------
+     0| 4.75e+00  1.00e+00  3.47e+00 -1.38e+00  1.00e-01  1.30e-02 
+   100| 1.58e-05  2.14e-06  8.03e-06  7.50e-01  1.00e-01  1.52e-02 
+------------------------------------------------------------------
+status:  solved
+timings: total: 1.52e-02s = setup: 7.41e-03s + solve: 7.83e-03s
+	 lin-sys: 3.21e-04s, cones: 6.39e-03s, accel: 7.20e-06s
+------------------------------------------------------------------
+objective = 0.750003
+------------------------------------------------------------------
+-------------------------------------------------------------------------------
+                                    Summary                                    
+-------------------------------------------------------------------------------
+(CVXPY) Jan 08 03:11:48 AM: Problem status: optimal
+(CVXPY) Jan 08 03:11:48 AM: Optimal value: 7.500e-01
+(CVXPY) Jan 08 03:11:48 AM: Compilation took 5.159e-02 seconds
+(CVXPY) Jan 08 03:11:48 AM: Solver (including time spent in interface) took 2.310e-02 seconds
+status: optimal
+Optimal value: 0.7500072100315675
+Variable var141: value 0.7500072100315675
+Variable var142: value [0.24999606 0.24999606 0.24999606 0.24999606]
+Variable var143: value [[ 2.49996050e-01  4.07364479e-10 -2.49996054e-01  4.07364478e-10
+   4.07364477e-10]
+ [ 4.07364479e-10  2.49996050e-01 -2.49996054e-01  4.07364473e-10
+   4.07364472e-10]
+ [-2.49996054e-01 -2.49996054e-01  9.99984245e-01 -2.49996054e-01
+  -2.49996054e-01]
+ [ 4.07364478e-10  4.07364473e-10 -2.49996054e-01  2.49996050e-01
+   4.07364472e-10]
+ [ 4.07364477e-10  4.07364472e-10 -2.49996054e-01  4.07364472e-10
+   2.49996050e-01]]
+status: optimal
+Optimal value: 0.6666693427131167
+Variable var254: value [0.33333387 0.33333387 0.33333387 0.33333387]
+kappa: 0.02, rho: 0.9949245078266961
+kappa: 0.3, rho: 0.9238676174004486
+kappa: 0.9, rho: 0.7716028522013454
+===============================================================================
+                                     CVXPY                                     
+                                     v1.2.2                                    
+===============================================================================
+(CVXPY) Jan 08 04:18:48 AM: Your problem has 82 variables, 5 constraints, and 0 parameters.
+(CVXPY) Jan 08 04:18:48 AM: It is compliant with the following grammars: DCP, DQCP
+(CVXPY) Jan 08 04:18:48 AM: (If you need to solve this problem multiple times, but with different data, consider using parameters.)
+(CVXPY) Jan 08 04:18:48 AM: CVXPY will first compile your problem; then, it will invoke a numerical solver to obtain a solution.
+-------------------------------------------------------------------------------
+                                  Compilation                                  
+-------------------------------------------------------------------------------
+(CVXPY) Jan 08 04:18:48 AM: Compiling problem (target solver=SCS).
+(CVXPY) Jan 08 04:18:48 AM: Reduction chain: Dcp2Cone -> CvxAttr2Constr -> ConeMatrixStuffing -> SCS
+(CVXPY) Jan 08 04:18:48 AM: Applying reduction Dcp2Cone
+(CVXPY) Jan 08 04:18:48 AM: Applying reduction CvxAttr2Constr
+(CVXPY) Jan 08 04:18:48 AM: Applying reduction ConeMatrixStuffing
+(CVXPY) Jan 08 04:18:48 AM: Applying reduction SCS
+(CVXPY) Jan 08 04:18:48 AM: Finished problem compilation (took 4.522e-02 seconds).
+-------------------------------------------------------------------------------
+                                Numerical solver                               
+-------------------------------------------------------------------------------
+(CVXPY) Jan 08 04:18:48 AM: Invoking solver SCS  to obtain a solution.
+------------------------------------------------------------------
+	       SCS v3.2.2 - Splitting Conic Solver
+	(c) Brendan O'Donoghue, Stanford University, 2012
+------------------------------------------------------------------
+problem:  variables n: 54, constraints m: 161
+cones: 	  z: primal zero / dual free vars: 64
+	  l: linear vars: 25
+	  s: psd vars: 72, ssize: 2
+settings: eps_abs: 1.0e-05, eps_rel: 1.0e-05, eps_infeas: 1.0e-07
+	  alpha: 1.50, scale: 1.00e-01, adaptive_scale: 1
+	  max_iters: 100000, normalize: 1, rho_x: 1.00e-06
+	  acceleration_lookback: 10, acceleration_interval: 10
+lin-sys:  sparse-direct-amd-qdldl
+	  nnz(A): 245, nnz(P): 0
+------------------------------------------------------------------
+ iter | pri res | dua res |   gap   |   obj   |  scale  | time (s)
+------------------------------------------------------------------
+     0| 2.87e+00  1.00e+00  1.98e+00 -8.97e-01  1.00e-01  1.36e-02 
+   150| 1.66e-06  4.92e-07  1.23e-06  6.67e-01  1.00e-01  5.37e-02 
+------------------------------------------------------------------
+status:  solved
+timings: total: 5.37e-02s = setup: 7.43e-03s + solve: 4.63e-02s
+	 lin-sys: 5.63e-04s, cones: 4.35e-02s, accel: 1.56e-03s
+------------------------------------------------------------------
+objective = 0.666667
+------------------------------------------------------------------
+-------------------------------------------------------------------------------
+                                    Summary                                    
+-------------------------------------------------------------------------------
+(CVXPY) Jan 08 04:18:48 AM: Problem status: optimal
+(CVXPY) Jan 08 04:18:48 AM: Optimal value: 6.667e-01
+(CVXPY) Jan 08 04:18:48 AM: Compilation took 4.522e-02 seconds
+(CVXPY) Jan 08 04:18:48 AM: Solver (including time spent in interface) took 5.026e-02 seconds
+status: optimal
+Optimal value: 0.6666671196621407
+Variable var281: value 0.6666671196621407
+Variable var282: value [ 3.33334458e-01  1.50630968e-01  3.08478687e-01  1.66668681e-01
+ -1.66340753e-06  1.66666725e-01  1.66666725e-01  1.66666725e-01
+  1.50630968e-01  1.66668681e-01  3.33334458e-01  1.66666725e-01
+  1.66666725e-01  1.66666725e-01  2.10716103e-01  2.10716103e-01
+  2.10716103e-01]
+Variable var283: value [[ 7.92444121e-01 -3.33334451e-01 -1.50630967e-01 -3.08478682e-01
+  -1.31586742e-08  8.88393807e-10  8.88393806e-10  8.88393809e-10]
+ [-3.33334451e-01  1.00000166e+00 -1.66668678e-01 -1.31586742e-08
+   1.66908988e-06 -1.66666725e-01 -1.66666725e-01 -1.66666725e-01]
+ [-1.50630967e-01 -1.66668678e-01  6.34599298e-01 -1.50630967e-01
+  -1.66668678e-01 -1.07413224e-09 -1.07413225e-09 -1.07413225e-09]
+ [-3.08478682e-01 -1.31586742e-08 -1.50630967e-01  7.92444121e-01
+  -3.33334451e-01  8.88393807e-10  8.88393803e-10  8.88393809e-10]
+ [-1.31586742e-08  1.66908988e-06 -1.66668678e-01 -3.33334451e-01
+   1.00000166e+00 -1.66666725e-01 -1.66666725e-01 -1.66666725e-01]
+ [ 8.88393807e-10 -1.66666725e-01 -1.07413224e-09  8.88393807e-10
+  -1.66666725e-01  7.54765653e-01 -2.10716104e-01 -2.10716104e-01]
+ [ 8.88393806e-10 -1.66666725e-01 -1.07413225e-09  8.88393803e-10
+  -1.66666725e-01 -2.10716104e-01  7.54765653e-01 -2.10716104e-01]
+ [ 8.88393809e-10 -1.66666725e-01 -1.07413225e-09  8.88393809e-10
+  -1.66666725e-01 -2.10716104e-01 -2.10716104e-01  7.54765653e-01]]
+status: optimal
+Optimal value: 0.6000028405511525
+Variable var394: value [ 0.39999793  0.15619138  0.22190485  0.19999821 -0.09999635  0.19999845
+  0.19999845  0.19999845  0.15619138  0.19999821  0.39999793  0.19999845
+  0.19999845  0.19999845  0.20000041  0.20000041  0.20000041]
+Simulation ended at Sun Jan  8 05:42:56 2023

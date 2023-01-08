@@ -200,7 +200,6 @@ def fmmc_weights(A):
     the second largest eigenvalue magnitude of P.
     The smaller this value gets, the faster asymptotic
     convergence we have.
-
     In this case, P is symmetric, rows sum to 1, and
     it can be described as P = I - L
     """
@@ -214,17 +213,18 @@ def fmmc_weights(A):
     constraints = [w >= 0,
                    cp.diag(L) <= 1,
                    L == A @ cp.diag(w) @ A.T,
-                   J - L <= s * I,
-                   J - L >= -s * I]
+                   J - L << s * I,
+                   J - L >> -s * I]
     prob = cp.Problem(cp.Minimize(s), constraints)
-    prob.solve()
+    prob.solve(verbose=True)
     print(f'status: {prob.status}')
     if prob.status not in ["infeasible", "unbounded"]:
         # Otherwise, problem.value is inf or -inf, respectively.
         print("Optimal value: %s" % prob.value)
         for variable in prob.variables():
             print("Variable %s: value %s" % (variable.name(), variable.value))    
-    return w.value, prob.value
+    W_fmmc = I - A @ np.diag(w.value) @ A.T
+    return w.value, W_fmmc, prob.value
 
 
 def get_S(w, C):

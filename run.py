@@ -5,12 +5,12 @@ import numpy as np
 from numba import njit, prange
 from scipy.sparse.csgraph import laplacian
 
-from graph_optimization import fdla_weights_symmetric
+from graph_optimization import fdla_weights_symmetric, fmmc_weights
 
 
 def main():
 	N = 10
-	runs = 10000
+	runs = 100000
 	T = 1000
 
 	# adjacency matrices
@@ -29,6 +29,16 @@ def main():
 			[0, 0, 1, 0, 0],
 			[0, 0, 1, 0, 0],
 		]),
+		np.array([
+			[0, 1, 1, 1, 0, 0, 0, 0],
+			[1, 0, 1, 0, 1, 0, 0, 0],
+			[1, 1, 0, 1, 1, 0, 0, 0],
+			[1, 0, 1, 0, 1, 1, 1, 1],
+			[0, 1, 1, 1, 0, 1, 1, 1],
+			[0, 0, 0, 1, 1, 0, 1, 1],
+			[0, 0, 0, 1, 1, 1, 0, 1],
+			[0, 0, 0, 1, 1, 1, 1, 0],
+		])
 	]
 
 	# corresponding incidence matrices
@@ -47,28 +57,52 @@ def main():
 			[  0,  0,  1,  0],
 			[  0,  0,  0,  1],
 		]),
+		np.array([
+			[  1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+			[ -1,  0,  0,  1,  1,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+			[  0, -1,  0, -1,  0,  0,  0,  0,  1,  1,  0,  0,  0,  0,  0,  0,  0],
+			[  0,  0, -1,  0,  0,  0,  0,  0, -1,  0,  1,  0,  0,  0,  0,  0,  0],
+			[  0,  0,  0,  0, -1,  0,  0,  0,  0, -1, -1,  1,  1,  1,  0,  0,  0],
+			[  0,  0,  0,  0,  0, -1,  0,  0,  0,  0,  0, -1,  0,  0,  1,  1,  0],
+			[  0,  0,  0,  0,  0,  0, -1,  0,  0,  0,  0,  0, -1,  0, -1,  0,  1],
+			[  0,  0,  0,  0,  0,  0,  0, -1,  0,  0,  0,  0,  0, -1,  0, -1, -1],
+		])
 	]
 
-	kappas = [0.02, 0.1, 0.3, 0.6, 0.9]
+	kappas = [0.02, 0.3, 0.9]
 	networks = [
 		'All-to-All',
 		'Star',
+		'8-agents'
 	]
 
-	trueMeans = np.array([np.random.normal(0, 30, N) for _ in range(runs)])
+	markers = [
+		'o',
+		'^',
+		's',
+		'x',
+		'v',
+	]
+
+	ylim_bottoms = [22, 22, 20]
+
+	trueMeans = np.array([np.random.normal(0, 10, N) for _ in range(runs)])
+
+	# trueMeans = np.array([[-0.61868816,  1.94749521,  0.45181122,  2.00299915, -0.52358688, -1.56532959, -0.65631623, -0.32224913,  0.59380186,  0.62113954] for _ in range(runs)])
+	np.save('trueMeans.npy', trueMeans)
 
 	# sizing
 	SMALL_SIZE = 10
 	MEDIUM_SIZE = 14
 	LARGE_SIZE = 18
 
-	plt.rcParams["figure.figsize"] = (15, 8)
-	plt.rc('font', size=MEDIUM_SIZE)
+	# plt.rcParams["figure.figsize"] = (15, 8)
+	plt.rc('font', size=SMALL_SIZE)
 	plt.rc('axes', titlesize=MEDIUM_SIZE, labelsize=MEDIUM_SIZE)
 	plt.rc('xtick', labelsize=MEDIUM_SIZE)
 	plt.rc('ytick', labelsize=MEDIUM_SIZE)
 
-	fig, axs = plt.subplots(len(networks), 1, sharex=True, sharey=True)
+	fig, ax = plt.subplots(1, 1, sharex=True, sharey=True)
 
 	# useful for agent wise plots
 	# colormap = plt.cm.nipy_spectral
@@ -77,39 +111,71 @@ def main():
 
 	print(f'Simulation started at {ctime(time())}')
 
-	for A, I, network, ax in zip(As, Is, networks, axs):
+	for networkIdx, (A, I, network) in enumerate(zip(As, Is, networks)):
 		PLabels, PMats = [], []
 
 		# kappas
 		for kappa in kappas:
-			PLabels.append(f'Kappa = {kappa}')
+			PLabels.append(f'κ = {kappa}')
 			PMats.append(generateP(A, kappa))
+
+		# FMMC
+		PLabels.append('FMMC')
+		PMats.append(fmmc_weights(I)[1])
 
 		# FDLA
 		PLabels.append('FDLA')
 		PMats.append(fdla_weights_symmetric(I)[1])
 
-		for label, P in zip(PLabels, PMats):
+		for idx, (label, P) in enumerate(zip(PLabels, PMats)):
+			# print(label)
+			# print(P)
 			res = run(runs, N, T, trueMeans, P)
-			res = np.mean(res, axis=0) # avg over all runs
 
-			# # log all agent wise data
-			np.savetxt(f'{network}-{label}.txt', res)
-			# res = np.genfromtxt(f'{network}-{label}.txt')
+			# log all agent wise data
+			np.save(f'data/{network}-{label}-{N}-{runs}.npy', res)
+
+			# res = np.load(f'data/{network}-{label}-{N}.npy')
+
+			res = np.mean(np.cumsum(res, axis=2), axis=1) # cumulative sum over T and avg over agents
+
+			# for meanresidx, r in enumerate(res):
+			# 	sortedMeans = sorted(trueMeans[meanresidx])
+			# 	print(f'{sortedMeans}\n\t\tdifference = {sortedMeans[-1] - sortedMeans[-2]}\t\tres[-1] = {r[-1]}')
+
+			std = np.std(res, axis=0)
+			std *= 2
+			mean = np.mean(res, axis=0) # avg over all runs
+			lower_bound = mean - std
+			upper_bound = mean + std
 
 			# for i, agentReg in enumerate(res):
-			ax.plot(np.cumsum(np.mean(res, axis=0)), label=f'{label}', lw=2)
+			for r in res:
+				ax.plot(r, lw=1, color='gray', alpha=0.2)
+
+			# print(f'high_count: {high_count}')
+
+			ax.plot(mean, marker=markers[idx], markevery=50, label=f'{label}', lw=2)
+			ax.fill_between(np.arange(T), upper_bound, lower_bound, alpha=0.4)
+			# ax2.errorbar(np.arange(T), mean, yerr=std, errorevery=50, marker=markers[idx], markevery=50, label=f'{label}', lw=2)
+
 
 		# subplot settings
+		# ax.set_ylim(bottom=ylim_bottoms[networkIdx])
 		ax.grid(True)
+		# ax2.grid(True)
 		ax.set_title(network)
 		ax.legend()
 		ax.set_xlabel('Timesteps')
 		ax.set_ylabel('Average Cumulative Regret')
+		plt.savefig(f'img/{network}-{N}-{runs}-avg-cum-reg.svg', format='svg')
+		plt.savefig(f'img/{network}-{N}-{runs}-avg-cum-reg.png', format='png')
+		ax.clear()
 
 
 	print(f'Simulation ended at {ctime(time())}')
-	plt.show()
+	fig.tight_layout()
+	# plt.show()
 
 @njit(parallel=True)
 def run(runs: int, N: int, T: int, trueMeans: np.ndarray, P: np.ndarray) -> np.ndarray:
@@ -118,7 +184,7 @@ def run(runs: int, N: int, T: int, trueMeans: np.ndarray, P: np.ndarray) -> np.n
 	means of arms, and the P matrix of the network. Optimized to work with
 	numba.
 	'''
-	sigma_g = 1		# try 10
+	sigma_g = 30		# try 10
 	# eta = 2		# try 2, 2.2, 3.2
 	gamma = 2.0 	# try 1.9, 2.9
 	f = lambda t : np.sqrt(np.log(t))
@@ -175,7 +241,7 @@ def generateP(A, kappa):
 
 	# print rho
 	l = np.absolute(np.linalg.eigvals(P))
-	print(f'all abs eigvals: {l}')
+	# print(f'all abs eigvals: {l}')
 	l = l[1 - l > 1e-5]
 	print(f'kappa: {kappa}, rho: {np.max(l)}')
 
