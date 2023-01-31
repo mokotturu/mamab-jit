@@ -1,6 +1,7 @@
 from time import ctime, time
 
 import matplotlib.pyplot as plt
+from matplotlib.patches import ConnectionPatch
 import numpy as np
 from numba import njit, prange
 from scipy.sparse.csgraph import laplacian
@@ -11,10 +12,27 @@ from graph_optimization import fdla_weights_symmetric, fmmc_weights
 def main():
 	N = 2
 	runs = 10000
-	T = 100
+	T = 200
 
 	# adjacency matrices
 	As = [
+		# all-to-all
+		# np.array([
+		# 	[0, 1, 1, 1, 1],
+		# 	[1, 0, 1, 1, 1],
+		# 	[1, 1, 0, 1, 1],
+		# 	[1, 1, 1, 0, 1],
+		# 	[1, 1, 1, 1, 0],
+		# ])
+		# star
+		np.array([
+			[0, 1, 1, 1, 1],
+			[1, 0, 0, 0, 0],
+			[1, 0, 0, 0, 0],
+			[1, 0, 0, 0, 0],
+			[1, 0, 0, 0, 0],
+		])
+		# 8-agent
 		# np.array([
 		# 	[0, 1, 1, 1, 0, 0, 0, 0],
 		# 	[1, 0, 1, 0, 1, 0, 0, 0],
@@ -25,24 +43,27 @@ def main():
 		# 	[0, 0, 0, 1, 1, 1, 0, 1],
 		# 	[0, 0, 0, 1, 1, 1, 1, 0],
 		# ])
-		# np.array([
-		# 	[0, 1, 1, 1, 1],
-		# 	[1, 0, 0, 0, 0],
-		# 	[1, 0, 0, 0, 0],
-		# 	[1, 0, 0, 0, 0],
-		# 	[1, 0, 0, 0, 0],
-		# ])
-		np.array([
-			[0, 1, 1, 1, 1],
-			[1, 0, 1, 1, 1],
-			[1, 1, 0, 1, 1],
-			[1, 1, 1, 0, 1],
-			[1, 1, 1, 1, 0],
-		])
 	]
 
 	# corresponding incidence matrices
 	Is = [
+		# all-to-all
+		# np.array([
+		# 	[ 1,  1,  1,  1,  0,  0,  0,  0,  0,  0],
+		# 	[-1,  0,  0,  0,  1,  1,  1,  0,  0,  0],
+		# 	[ 0, -1,  0,  0, -1,  0,  0,  1,  1,  0],
+		# 	[ 0,  0, -1,  0,  0, -1,  0, -1,  0,  1],
+		# 	[ 0,  0,  0, -1,  0,  0, -1,  0, -1, -1],
+		# ])
+		# star
+		np.array([
+			[ 1,  1,  1,  1],
+			[-1,  0,  0,  0],
+			[ 0, -1,  0,  0],
+			[ 0,  0, -1,  0],
+			[ 0,  0,  0, -1],
+		])
+		# 8-agent
 		# np.array([
 		# 	[  1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
 		# 	[ -1,  0,  0,  1,  1,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0],
@@ -53,27 +74,14 @@ def main():
 		# 	[  0,  0,  0,  0,  0,  0, -1,  0,  0,  0,  0,  0, -1,  0, -1,  0,  1],
 		# 	[  0,  0,  0,  0,  0,  0,  0, -1,  0,  0,  0,  0,  0, -1,  0, -1, -1],
 		# ])
-		# np.array([
-		# 	[ 1,  1,  1,  1],
-		# 	[-1,  0,  0,  0],
-		# 	[ 0, -1,  0,  0],
-		# 	[ 0,  0, -1,  0],
-		# 	[ 0,  0,  0, -1],
-		# ])
-		np.array([
-			[ 1,  1,  1,  1,  0,  0,  0,  0,  0,  0],
-			[-1,  0,  0,  0,  1,  1,  1,  0,  0,  0],
-			[ 0, -1,  0,  0, -1,  0,  0,  1,  1,  0],
-			[ 0,  0, -1,  0,  0, -1,  0, -1,  0,  1],
-			[ 0,  0,  0, -1,  0,  0, -1,  0, -1, -1],
-		])
 	]
 
 	M, _ = As[0].shape
 
-	kappas = [0.02]
 	networks = [
-		'8-agent network',
+		'all-to-all',
+		'star',
+		'8-agents',
 	]
 
 	# temp = np.array([-0.5, 0.5])
@@ -108,7 +116,7 @@ def main():
 	]
 
 	# fig, axss = plt.subplots(1, 5, sharex=True, sharey=True, figsize=(16, 6), constrained_layout=True)
-	plt.title('All-to-All network')
+	# plt.title('All-to-All network')
 	# for ax in fig.get_axes():
 	# 	ax.label_outer()
 	# axs0 = axss
@@ -118,99 +126,156 @@ def main():
 
 	labels = [
 		'κ = 0.02',
-		'FDLA',
+		'κ = 0.3',
+		'κ = 0.9',
 		'FMMC',
+		'FDLA',
 	]
 
-	markers = ['o', '^', 's']
+	markers = [
+		'o',
+		'^',
+		's',
+		'x',
+		'v',
+	]
 
-	P0 = generateP(As[0], kappa=0.02)
-	_, P1, _ = fdla_weights_symmetric(Is[0])
-	_, P2, _ = fmmc_weights(Is[0])
+	# P0, rho0 = generateP(As[0], kappa=0.02)
+	# _, P1, rho1 = fdla_weights_symmetric(Is[0])
+	# _, P2, rho2 = fmmc_weights(Is[0])
 
-	# P0, P1, P2 = [], [], []
+	Ps, rhos = [], []
 
-	for idx, P in enumerate([P0, P1, P2]):
+	for k in [0.02, 0.3, 0.9]:
+		P, rho = generateP(As[0], kappa=k)
+		Ps.append(P)
+		rhos.append(rho)
+		print(f'MYOUT: kappa = {k}, rho = {rho}, tau = {1 / np.log(1 / rho)}')
+
+	# fmmc
+	_, P, rho = fmmc_weights(Is[0])
+	Ps.append(P)
+	rhos.append(rho)
+	print(f'MYOUT: rho = {rho}, tau = {1 / np.log(1 / rho)}')
+
+	# fdla
+	_, P, rho = fdla_weights_symmetric(Is[0])
+	Ps.append(P)
+	rhos.append(rho)
+	print(f'MYOUT: rho = {rho}, tau = {1 / np.log(1 / rho)}')
+
+	### ZOOM IN PLOT
+	fig, ax = plt.subplots()
+
+	# axins plot limits
+	# in_xl, in_xr, in_yb, in_yu = 15, 53, 0, 0.02
+	in_xl, in_xr, in_yb, in_yu = 20, 102, 0, 0.01
+	# in_xl, in_xr, in_yb, in_yu = 13, 60, 0, 0.01
+
+	# insets
+	inset = [0.425, 0.4, 0.55, 0.55]
+	# inset = [0.425, 0.4, 0.55, 0.55]
+	# inset = [0.425, 0.4, 0.55, 0.55]
+
+	fig.suptitle('Star network')
+	fig.supxlabel('Timesteps')
+	fig.supylabel('Mean estimate error for the best arm')
+
+	# ax.arrow(in_xr, in_yu, dx, dy, width=0.0005, head_width=0.003, head_length=3, color='black')
+
+	axins = ax.inset_axes(inset)
+
+	width = 2
+	axins.spines['bottom'].set_linewidth(width)
+	axins.spines['top'].set_linewidth(width) 
+	axins.spines['right'].set_linewidth(width)
+	axins.spines['left'].set_linewidth(width)
+	axins.tick_params(width=width)
+
+	ax.grid(True)
+	axins.grid(which='both', axis='both')
+	# ax.indicate_inset_zoom(axins, edgecolor='black')
+	ax.fill_between((in_xl, in_xr), in_yb, in_yu, facecolor='black', alpha=0.2)
+
+
+	### SUBPLOTS
+	# fig = plt.figure	(figsize=(6.4, 9.6))
+	# fig.suptitle('8-agent network')
+	# fig.supxlabel('Timesteps')
+	# fig.supylabel('Mean estimation error for the best arm')
+
+	# sub1 = fig.add_subplot(211)
+	# sub1.set_ylim(-0.01, 0.12)
+	# sub1.grid()
+	
+	# sub2 = fig.add_subplot(212)
+	# sub2.set_ylim(-0.01, 0.12)
+	# sub2.grid()
+
+	# sub2.fill_between((0, 30), -0.01, 0.12, facecolor='black', alpha=0.2)
+	# con1 = ConnectionPatch(xyA=(0, 0.12), coordsA=ax.transData, xyB=(0, 0.12), coordsB=axins.transData, color='black')
+	# con2 = ConnectionPatch(xyA=(30, -0.01), coordsA=ax.transData, xyB=(30, -0.01), coordsB=axins.transData, color='black')
+	# fig.add_artist(con1)
+	# fig.add_artist(con2)
+
+	means = np.zeros((len(Ps), T))
+	means_maxs = np.zeros(len(Ps))
+
+	for idx, (P, rho) in enumerate(zip(Ps, rhos)):
 		_, Q, snerr, s, n = run(runs, N, T, trueMeans, P)
 
-		
 		# Q = np.mean(Q, axis=0)
-		snerr = np.mean(snerr, axis=0)
+		snerr = np.mean(snerr, axis=0)	# mean over runs
 
-		np.save(f'snerr_{idx}.npy', snerr)
-		# snerr = np.load(f'snerr_{idx}.npy')
+		np.save(f'data/star_snerr_{labels[idx]}.npy', snerr)
+		# snerr = np.load(f'data/star_snerr_{labels[idx]}.npy')
+		means[idx] = np.mean(snerr, axis=0)	# mean over agents
+		means_maxs[idx] = np.max(means[idx])
 
-		# s = np.mean(s, axis=0)
-		# n = np.mean(n, axis=0)
+	for idx, (P, rho) in enumerate(zip(Ps, rhos)):
+		# tau = 1 / (np.log(1 / rho))
+		decreasing_arr = means[idx, np.argmax(means[idx]):]
+		vert_line = np.argmax(means[idx]) + np.argmax(decreasing_arr < 0.05 * np.max(means_maxs))
 
-		# print(snerr)
+		ax.plot(means[idx], marker=markers[idx], markevery=5, lw=2, linestyle='solid', color=colors[idx], label=labels[idx])
+		ax.axvline(vert_line, color=colors[idx], linestyle='dashed', lw=2, alpha=0.7)
+		ax.set_ylim(-0.01, 0.12)
 
-		# print(f's: {s}')
-		# print(f'n: {n}')
+		axins.plot(means[idx], marker=markers[idx], markevery=5, lw=2, linestyle='solid', color=colors[idx], label=labels[idx])
+		axins.axvline(vert_line, color=colors[idx], linestyle='dashed', lw=2, alpha=0.7)
+		axins.set_ylim(-0.01, 0.12)
+		print(P)
 
-		# for i, axUp in enumerate(axs0):
-		# ax.set_prop_cycle(color=[cm(1.*j/10) for j in range(10)])
-		plt.grid(True)
-		# plt.title(f'Agent {i}')
-		plt.xlabel('Timesteps')
-		plt.ylabel('Mean estimate error for the best arm')
-		# if i == 0:
-			# axUp.set_ylabel('s / n error')
-
-		# axDown.grid(True)
-		# axDown.set_title(f'Agent {i}')
-		# axDown.set_xlabel('Timesteps')
-		# axDown.set_ylabel('s / n error')
-		# if i == 0:
-		# 	axDown.set_ylabel('s / n error')
-
-		# for n in range(N):
-			# axUp.plot(sn[i, n, :], label=f'Arm {n}', lw=1, linestyle='solid', color=colors[n])
-			# axUp.plot([trueMeans[0][n] for _ in range(1000)], label=f'Arm {n} true mean', lw=1, linestyle='dashed', color=colors[n])
-		# for i in range(M):
-		# if i == 0:
-		# plt.plot(np.mean(snerr, axis=0), lw=1, linestyle='solid', color=colors[idx])
-		# else:
-		plt.plot(np.mean(snerr, axis=0), marker=markers[idx], markevery=5, lw=2, linestyle='solid', color=colors[idx], label=labels[idx])
-		snerr = np.mean(snerr, axis=0)
-		print(snerr)
-		argmaxidx = np.argmax(snerr)
-		sanitized_arr = snerr[argmaxidx:]
-		drop_amt = snerr[argmaxidx] / np.exp(1)
-		print(snerr[argmaxidx], drop_amt)
-		drop_amt_idx = np.argwhere(sanitized_arr < drop_amt)[0][0]
-		print("SETTLING TIME: ", drop_amt_idx, snerr[drop_amt_idx])
-		plt.axvline(argmaxidx + drop_amt_idx, color=colors[idx], linestyle='dashed', lw=2)
-
-			# axDown.plot([trueMeans[0][n] for _ in range(1000)], label=f'Arm {n} true mean', lw=1, linestyle='dashed', color=colors[n])
-		plt.legend()
-		# ax.legend()
-
-	# handles, labels = axs0[0].get_legend_handles_labels()
-	# fig.legend(handles, labels, loc='right')
-
-	# P = fdla_weights_symmetric(Is[0])[1]
-	# _, Q = run(runs, N, T, trueMeans, P)
-	# print(Q.shape)
+		### SUBPLOT 1
+		# sub1.plot(mean, marker=markers[idx], markevery=5, lw=2, linestyle='solid', color=colors[idx], label=labels[idx])
+		# sub1.set_xlim(0, 30)
 
 
-	# log all agent wise data
-	# res = np.genfromtxt(f'{network}-{label}.txt')
+		# ### SUBPLOT 2
+		# sub2.plot(mean, marker=markers[idx], markevery=20, lw=2, linestyle='solid', color=colors[idx], label=labels[idx])
+		# # sub2.set_xlim(0, 200)
 
-	# for i, agentReg in enumerate(res):
-	# ax.plot(np.cumsum(np.mean(res, axis=0)), label=f'{label}', lw=2)
-	# for i, arr in enumerate(errors):
-	# 	ax.plot(arr, label=f'{label} arm {i}', lw=1, linestyle='dashed' if label == 'FDLA' else 'solid')
+		# if tau <= 30:
+		# 	sub1.axvline(tau, color=colors[idx], linestyle='dashed', lw=2, alpha=0.7)
 
+		# sub2.axvline(tau, color=colors[idx], linestyle='dashed', lw=2, alpha=0.7)
+
+	axins.set_xlim((in_xl, in_xr))
+	axins.set_ylim((in_yb, in_yu))
+
+	con = ConnectionPatch(xyA=(in_xr, in_yu), coordsA=ax.transData, xyB=(in_xl, in_yb), coordsB=axins.transData, color='black')
+	fig.add_artist(con)
 
 	print(f'Simulation ended at {ctime(time())}')
-	plt.savefig('ata-param.svg', format='svg')
-	plt.savefig('ata-param.png', format='png')
 	plt.tight_layout()
-	plt.show()
+	# sub1.legend()
+	axins.legend()
+	plt.savefig('img/star-errors.svg', format='svg')
+	plt.savefig('img/star-errors.png', format='png')
+	# plt.show()
+
 
 @njit(parallel=True)
-# @njit
 def run(runs: int, N: int, T: int, trueMeans: np.ndarray, P: np.ndarray) -> tuple:
 	'''
 	Plays coopucb2 given the number of runs, number of arms, timesteps, true
@@ -301,11 +366,7 @@ def generateP(A, kappa):
 	# print rho
 	l = np.absolute(np.linalg.eigvals(P))
 	l = l[1 - l > 1e-5]
-	print(f'kappa: {kappa}, rho: {np.max(l)}')
-
-	print(P)
-
-	return P
+	return P, np.max(l)
 
 
 if __name__ == '__main__':
