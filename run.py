@@ -6,24 +6,24 @@ import numpy as np
 from numba import njit, prange
 from scipy.sparse.csgraph import laplacian
 
-from graph_optimization import fdla_weights_symmetric, fmmc_weights
+from graph_optimization import fdla_weights_symmetric, fmmc_weights, fastest_averaging_constant_weight, metropolis_hastings_weights, max_degree_weights
 
 
 def main():
-	N = 2
-	runs = 10000
+	N = 10
+	runs = 1000
 	T = 200
 
 	# adjacency matrices
 	As = [
 		# all-to-all
-		# np.array([
-		# 	[0, 1, 1, 1, 1],
-		# 	[1, 0, 1, 1, 1],
-		# 	[1, 1, 0, 1, 1],
-		# 	[1, 1, 1, 0, 1],
-		# 	[1, 1, 1, 1, 0],
-		# ])
+		np.array([
+			[0, 1, 1, 1, 1],
+			[1, 0, 1, 1, 1],
+			[1, 1, 0, 1, 1],
+			[1, 1, 1, 0, 1],
+			[1, 1, 1, 1, 0],
+		]),
 		# star
 		np.array([
 			[0, 1, 1, 1, 1],
@@ -31,30 +31,36 @@ def main():
 			[1, 0, 0, 0, 0],
 			[1, 0, 0, 0, 0],
 			[1, 0, 0, 0, 0],
-		])
+		]),
 		# 8-agent
-		# np.array([
-		# 	[0, 1, 1, 1, 0, 0, 0, 0],
-		# 	[1, 0, 1, 0, 1, 0, 0, 0],
-		# 	[1, 1, 0, 1, 1, 0, 0, 0],
-		# 	[1, 0, 1, 0, 1, 1, 1, 1],
-		# 	[0, 1, 1, 1, 0, 1, 1, 1],
-		# 	[0, 0, 0, 1, 1, 0, 1, 1],
-		# 	[0, 0, 0, 1, 1, 1, 0, 1],
-		# 	[0, 0, 0, 1, 1, 1, 1, 0],
-		# ])
+		np.array([
+			[0, 1, 1, 1, 0, 0, 0, 0],
+			[1, 0, 1, 0, 1, 0, 0, 0],
+			[1, 1, 0, 1, 1, 0, 0, 0],
+			[1, 0, 1, 0, 1, 1, 1, 1],
+			[0, 1, 1, 1, 0, 1, 1, 1],
+			[0, 0, 0, 1, 1, 0, 1, 1],
+			[0, 0, 0, 1, 1, 1, 0, 1],
+			[0, 0, 0, 1, 1, 1, 1, 0],
+		]),
+		# Large network 1
+		# nx.to_numpy_array(LG1),
+		np.load('large1_adj.npy'),
+		# Large network 2
+		# nx.to_numpy_array(LG2),
+		np.load('large2_adj.npy'),
 	]
 
 	# corresponding incidence matrices
 	Is = [
 		# all-to-all
-		# np.array([
-		# 	[ 1,  1,  1,  1,  0,  0,  0,  0,  0,  0],
-		# 	[-1,  0,  0,  0,  1,  1,  1,  0,  0,  0],
-		# 	[ 0, -1,  0,  0, -1,  0,  0,  1,  1,  0],
-		# 	[ 0,  0, -1,  0,  0, -1,  0, -1,  0,  1],
-		# 	[ 0,  0,  0, -1,  0,  0, -1,  0, -1, -1],
-		# ])
+		np.array([
+			[ 1,  1,  1,  1,  0,  0,  0,  0,  0,  0],
+			[-1,  0,  0,  0,  1,  1,  1,  0,  0,  0],
+			[ 0, -1,  0,  0, -1,  0,  0,  1,  1,  0],
+			[ 0,  0, -1,  0,  0, -1,  0, -1,  0,  1],
+			[ 0,  0,  0, -1,  0,  0, -1,  0, -1, -1],
+		]),
 		# star
 		np.array([
 			[ 1,  1,  1,  1],
@@ -62,18 +68,24 @@ def main():
 			[ 0, -1,  0,  0],
 			[ 0,  0, -1,  0],
 			[ 0,  0,  0, -1],
-		])
+		]),
 		# 8-agent
-		# np.array([
-		# 	[  1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
-		# 	[ -1,  0,  0,  1,  1,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0],
-		# 	[  0, -1,  0, -1,  0,  0,  0,  0,  1,  1,  0,  0,  0,  0,  0,  0,  0],
-		# 	[  0,  0, -1,  0,  0,  0,  0,  0, -1,  0,  1,  0,  0,  0,  0,  0,  0],
-		# 	[  0,  0,  0,  0, -1,  0,  0,  0,  0, -1, -1,  1,  1,  1,  0,  0,  0],
-		# 	[  0,  0,  0,  0,  0, -1,  0,  0,  0,  0,  0, -1,  0,  0,  1,  1,  0],
-		# 	[  0,  0,  0,  0,  0,  0, -1,  0,  0,  0,  0,  0, -1,  0, -1,  0,  1],
-		# 	[  0,  0,  0,  0,  0,  0,  0, -1,  0,  0,  0,  0,  0, -1,  0, -1, -1],
-		# ])
+		np.array([
+			[  1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+			[ -1,  0,  0,  1,  1,  1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+			[  0, -1,  0, -1,  0,  0,  0,  0,  1,  1,  0,  0,  0,  0,  0,  0,  0],
+			[  0,  0, -1,  0,  0,  0,  0,  0, -1,  0,  1,  0,  0,  0,  0,  0,  0],
+			[  0,  0,  0,  0, -1,  0,  0,  0,  0, -1, -1,  1,  1,  1,  0,  0,  0],
+			[  0,  0,  0,  0,  0, -1,  0,  0,  0,  0,  0, -1,  0,  0,  1,  1,  0],
+			[  0,  0,  0,  0,  0,  0, -1,  0,  0,  0,  0,  0, -1,  0, -1,  0,  1],
+			[  0,  0,  0,  0,  0,  0,  0, -1,  0,  0,  0,  0,  0, -1,  0, -1, -1],
+		]),
+		# Large network 1
+		# np.asarray(nx.linalg.graphmatrix.incidence_matrix(LG1, oriented=True).todense()),
+		np.load('large1_inc.npy'),
+		# Large network 2
+		# np.asarray(nx.linalg.graphmatrix.incidence_matrix(LG2, oriented=True).todense()),
+		np.load('large2_inc.npy'),
 	]
 
 	M, _ = As[0].shape
@@ -82,6 +94,8 @@ def main():
 		'all-to-all',
 		'star',
 		'8-agents',
+		'large1',
+		'large2',
 	]
 
 	# temp = np.array([-0.5, 0.5])
@@ -101,7 +115,8 @@ def main():
 
 	np.set_printoptions(threshold=99999999999999999)
 
-	# cm = plt.get_cmap('gist_rainbow')
+	print(f'Simulation started at {ctime(time())}')
+
 	colors = [
 		'tab:blue',
 		'tab:orange',
@@ -115,19 +130,13 @@ def main():
 		'tab:cyan',
 	]
 
-	# fig, axss = plt.subplots(1, 5, sharex=True, sharey=True, figsize=(16, 6), constrained_layout=True)
-	# plt.title('All-to-All network')
-	# for ax in fig.get_axes():
-	# 	ax.label_outer()
-	# axs0 = axss
-	# axs1 = axss[1].flatten()
-
-	print(f'Simulation started at {ctime(time())}')
-
 	labels = [
 		'κ = 0.02',
 		'κ = 0.3',
 		'κ = 0.9',
+		'Constant-edge',
+		'Maximum-degree',
+		'Local-degree (MH)',
 		'FMMC',
 		'FDLA',
 	]
@@ -138,141 +147,157 @@ def main():
 		's',
 		'x',
 		'v',
+		'*',
+		'1',
+		'D',
+		'P',
 	]
 
 	# P0, rho0 = generateP(As[0], kappa=0.02)
 	# _, P1, rho1 = fdla_weights_symmetric(Is[0])
 	# _, P2, rho2 = fmmc_weights(Is[0])
 
-	Ps, rhos = [], []
+	for mat_idx in range(len(As)):
+		Ps, rhos = [], []
 
-	for k in [0.02, 0.3, 0.9]:
-		P, rho = generateP(As[0], kappa=k)
+		for k in [0.02, 0.3, 0.9]:
+			P, rho = generateP(As[mat_idx], kappa=k)
+			Ps.append(P)
+			rhos.append(rho)
+			print(f'MYOUT: kappa = {k}, rho = {rho}, tau = {1 / np.log(1 / rho)}')
+
+		# constant edge
+		_, P, rho = fastest_averaging_constant_weight(Is[mat_idx])
+		rho = get_rho(P)
 		Ps.append(P)
 		rhos.append(rho)
-		print(f'MYOUT: kappa = {k}, rho = {rho}, tau = {1 / np.log(1 / rho)}')
-
-	# fmmc
-	_, P, rho = fmmc_weights(Is[0])
-	Ps.append(P)
-	rhos.append(rho)
-	print(f'MYOUT: rho = {rho}, tau = {1 / np.log(1 / rho)}')
-
-	# fdla
-	_, P, rho = fdla_weights_symmetric(Is[0])
-	Ps.append(P)
-	rhos.append(rho)
-	print(f'MYOUT: rho = {rho}, tau = {1 / np.log(1 / rho)}')
-
-	### ZOOM IN PLOT
-	fig, ax = plt.subplots()
-
-	# axins plot limits
-	# in_xl, in_xr, in_yb, in_yu = 15, 53, 0, 0.02
-	in_xl, in_xr, in_yb, in_yu = 20, 102, 0, 0.01
-	# in_xl, in_xr, in_yb, in_yu = 13, 60, 0, 0.01
-
-	# insets
-	inset = [0.425, 0.4, 0.55, 0.55]
-	# inset = [0.425, 0.4, 0.55, 0.55]
-	# inset = [0.425, 0.4, 0.55, 0.55]
-
-	fig.suptitle('Star network')
-	fig.supxlabel('Timesteps')
-	fig.supylabel('Mean estimate error for the best arm')
-
-	# ax.arrow(in_xr, in_yu, dx, dy, width=0.0005, head_width=0.003, head_length=3, color='black')
-
-	axins = ax.inset_axes(inset)
-
-	width = 2
-	axins.spines['bottom'].set_linewidth(width)
-	axins.spines['top'].set_linewidth(width) 
-	axins.spines['right'].set_linewidth(width)
-	axins.spines['left'].set_linewidth(width)
-	axins.tick_params(width=width)
-
-	ax.grid(True)
-	axins.grid(which='both', axis='both')
-	# ax.indicate_inset_zoom(axins, edgecolor='black')
-	ax.fill_between((in_xl, in_xr), in_yb, in_yu, facecolor='black', alpha=0.2)
-
-
-	### SUBPLOTS
-	# fig = plt.figure	(figsize=(6.4, 9.6))
-	# fig.suptitle('8-agent network')
-	# fig.supxlabel('Timesteps')
-	# fig.supylabel('Mean estimation error for the best arm')
-
-	# sub1 = fig.add_subplot(211)
-	# sub1.set_ylim(-0.01, 0.12)
-	# sub1.grid()
-	
-	# sub2 = fig.add_subplot(212)
-	# sub2.set_ylim(-0.01, 0.12)
-	# sub2.grid()
-
-	# sub2.fill_between((0, 30), -0.01, 0.12, facecolor='black', alpha=0.2)
-	# con1 = ConnectionPatch(xyA=(0, 0.12), coordsA=ax.transData, xyB=(0, 0.12), coordsB=axins.transData, color='black')
-	# con2 = ConnectionPatch(xyA=(30, -0.01), coordsA=ax.transData, xyB=(30, -0.01), coordsB=axins.transData, color='black')
-	# fig.add_artist(con1)
-	# fig.add_artist(con2)
-
-	means = np.zeros((len(Ps), T))
-	means_maxs = np.zeros(len(Ps))
-
-	for idx, (P, rho) in enumerate(zip(Ps, rhos)):
-		_, Q, snerr, s, n = run(runs, N, T, trueMeans, P)
-
-		# Q = np.mean(Q, axis=0)
-		snerr = np.mean(snerr, axis=0)	# mean over runs
-
-		np.save(f'data/star_snerr_{labels[idx]}.npy', snerr)
-		# snerr = np.load(f'data/star_snerr_{labels[idx]}.npy')
-		means[idx] = np.mean(snerr, axis=0)	# mean over agents
-		means_maxs[idx] = np.max(means[idx])
-
-	for idx, (P, rho) in enumerate(zip(Ps, rhos)):
-		# tau = 1 / (np.log(1 / rho))
-		decreasing_arr = means[idx, np.argmax(means[idx]):]
-		vert_line = np.argmax(means[idx]) + np.argmax(decreasing_arr < 0.05 * np.max(means_maxs))
-
-		ax.plot(means[idx], marker=markers[idx], markevery=5, lw=2, linestyle='solid', color=colors[idx], label=labels[idx])
-		ax.axvline(vert_line, color=colors[idx], linestyle='dashed', lw=2, alpha=0.7)
-		ax.set_ylim(-0.01, 0.12)
-
-		axins.plot(means[idx], marker=markers[idx], markevery=5, lw=2, linestyle='solid', color=colors[idx], label=labels[idx])
-		axins.axvline(vert_line, color=colors[idx], linestyle='dashed', lw=2, alpha=0.7)
-		axins.set_ylim(-0.01, 0.12)
+		print(f'{"Constant-edge":<20s}: {rho} {1 / np.log(1 / rho)}')
 		print(P)
 
-		### SUBPLOT 1
-		# sub1.plot(mean, marker=markers[idx], markevery=5, lw=2, linestyle='solid', color=colors[idx], label=labels[idx])
-		# sub1.set_xlim(0, 30)
+		# maximum degree
+		_, P, rho = max_degree_weights(Is[mat_idx])
+		rho = get_rho(P)
+		Ps.append(P)
+		rhos.append(rho)
+		print(f'{"Max-degree":<20s}: {rho} {1 / np.log(1 / rho)}')
+		print(P)
+
+		# local degree (MH)
+		_, P, rho = metropolis_hastings_weights(Is[mat_idx])
+		rho = get_rho(P)
+		Ps.append(P)
+		rhos.append(rho)
+		print(f'{"Local-degree":<20s}: {rho} {1 / np.log(1 / rho)}')
+		print(P)
+
+		# fmmc
+		_, P, rho = fmmc_weights(Is[mat_idx])
+		Ps.append(P)
+		rhos.append(rho)
+		print(f'MYOUT: rho = {rho}, tau = {1 / np.log(1 / rho)}')
+
+		# fdla
+		_, P, rho = fdla_weights_symmetric(Is[mat_idx])
+		Ps.append(P)
+		rhos.append(rho)
+		print(f'MYOUT: rho = {rho}, tau = {1 / np.log(1 / rho)}')
+
+		### ZOOM IN PLOT
+		fig, ax = plt.subplots()
+
+		# axins plot limits
+		# in_xl, in_xr, in_yb, in_yu = 15, 53, 0, 0.02
+		in_xl, in_xr, in_yb, in_yu = 20, 102, 0, 0.01
+		# in_xl, in_xr, in_yb, in_yu = 13, 60, 0, 0.01
+
+		# insets
+		inset = [0.425, 0.4, 0.55, 0.55]
+		# inset = [0.425, 0.4, 0.55, 0.55]
+		# inset = [0.425, 0.4, 0.55, 0.55]
+
+		fig.suptitle(f'{networks[mat_idx]} network')
+		fig.supxlabel('Timesteps')
+		fig.supylabel('Mean estimate error for the best arm')
+
+		# ax.arrow(in_xr, in_yu, dx, dy, width=0.0005, head_width=0.003, head_length=3, color='black')
+
+		axins = ax.inset_axes(inset)
+
+		width = 2
+		axins.spines['bottom'].set_linewidth(width)
+		axins.spines['top'].set_linewidth(width)
+		axins.spines['right'].set_linewidth(width)
+		axins.spines['left'].set_linewidth(width)
+		axins.tick_params(width=width)
+
+		ax.grid(True)
+		axins.grid(which='both', axis='both')
+		# ax.indicate_inset_zoom(axins, edgecolor='black')
+		ax.fill_between((in_xl, in_xr), in_yb, in_yu, facecolor='black', alpha=0.2)
 
 
-		# ### SUBPLOT 2
-		# sub2.plot(mean, marker=markers[idx], markevery=20, lw=2, linestyle='solid', color=colors[idx], label=labels[idx])
-		# # sub2.set_xlim(0, 200)
+		### SUBPLOTS
+		# fig = plt.figure	(figsize=(6.4, 9.6))
+		# fig.suptitle('8-agent network')
+		# fig.supxlabel('Timesteps')
+		# fig.supylabel('Mean estimation error for the best arm')
 
-		# if tau <= 30:
-		# 	sub1.axvline(tau, color=colors[idx], linestyle='dashed', lw=2, alpha=0.7)
+		# sub1 = fig.add_subplot(211)
+		# sub1.set_ylim(-0.01, 0.12)
+		# sub1.grid()
+		
+		# sub2 = fig.add_subplot(212)
+		# sub2.set_ylim(-0.01, 0.12)
+		# sub2.grid()
 
-		# sub2.axvline(tau, color=colors[idx], linestyle='dashed', lw=2, alpha=0.7)
+		# sub2.fill_between((0, 30), -0.01, 0.12, facecolor='black', alpha=0.2)
+		# con1 = ConnectionPatch(xyA=(0, 0.12), coordsA=ax.transData, xyB=(0, 0.12), coordsB=axins.transData, color='black')
+		# con2 = ConnectionPatch(xyA=(30, -0.01), coordsA=ax.transData, xyB=(30, -0.01), coordsB=axins.transData, color='black')
+		# fig.add_artist(con1)
+		# fig.add_artist(con2)
 
-	axins.set_xlim((in_xl, in_xr))
-	axins.set_ylim((in_yb, in_yu))
+		means = np.zeros((len(Ps), T))
+		means_maxs = np.zeros(len(Ps))
 
-	con = ConnectionPatch(xyA=(in_xr, in_yu), coordsA=ax.transData, xyB=(in_xl, in_yb), coordsB=axins.transData, color='black')
-	fig.add_artist(con)
+		for idx, (P, rho) in enumerate(zip(Ps, rhos)):
+			_, Q, snerr, s, n = run(runs, N, T, trueMeans, P)
 
-	print(f'Simulation ended at {ctime(time())}')
-	plt.tight_layout()
-	# sub1.legend()
-	axins.legend()
-	plt.savefig('img/star-errors.svg', format='svg')
-	plt.savefig('img/star-errors.png', format='png')
-	# plt.show()
+			# Q = np.mean(Q, axis=0)
+			snerr = np.mean(snerr, axis=0)	# mean over runs
+
+			np.save(f'testdata/{networks[mat_idx]}_snerr_{labels[idx]}.npy', snerr)
+			# snerr = np.load(f'data/star_snerr_{labels[idx]}.npy')
+			means[idx] = np.mean(snerr, axis=0)	# mean over agents
+			means_maxs[idx] = np.max(means[idx])
+
+		for idx, (P, rho) in enumerate(zip(Ps, rhos)):
+			# tau = 1 / (np.log(1 / rho))
+			decreasing_arr = means[idx, np.argmax(means[idx]):]
+			vert_line = np.argmax(means[idx]) + np.argmax(decreasing_arr < 0.05 * np.max(means_maxs))
+
+			ax.plot(means[idx], marker=markers[idx], markevery=5, lw=2, linestyle='solid', color=colors[idx], label=labels[idx])
+			ax.axvline(vert_line, color=colors[idx], linestyle='dashed', lw=2, alpha=0.7)
+			ax.set_ylim(-0.01, 0.12)
+
+			axins.plot(means[idx], marker=markers[idx], markevery=5, lw=2, linestyle='solid', color=colors[idx], label=labels[idx])
+			axins.axvline(vert_line, color=colors[idx], linestyle='dashed', lw=2, alpha=0.7)
+			axins.set_ylim(-0.01, 0.12)
+			print(P)
+
+		axins.set_xlim((in_xl, in_xr))
+		axins.set_ylim((in_yb, in_yu))
+
+		con = ConnectionPatch(xyA=(in_xr, in_yu), coordsA=ax.transData, xyB=(in_xl, in_yb), coordsB=axins.transData, color='black')
+		fig.add_artist(con)
+
+		print(f'Simulation ended at {ctime(time())}')
+		plt.tight_layout()
+		# sub1.legend()
+		axins.legend()
+		# plt.savefig('testimg/star-errors.svg', format='svg')
+		plt.savefig(f'testimg/{networks[mat_idx]}errors.png', format='png')
+		fig.clear()
+		# plt.show()
 
 
 @njit(parallel=True)
@@ -368,6 +393,12 @@ def generateP(A, kappa):
 	l = l[1 - l > 1e-5]
 	return P, np.max(l)
 
+def get_rho(P):
+	n = P.shape[0]
+	_P = P - np.ones((n, n)) * (1/n)
+	l = np.abs(np.linalg.eigvals(_P))
+	l = l[1 - l > 1e-5]
+	return np.max(l)
 
 if __name__ == '__main__':
 	main()

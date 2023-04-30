@@ -56,7 +56,7 @@ def max_degree_weights(A):
     rho = np.linalg.norm(I - A@np.diag(w_md)@A.T - (1/n)*np.ones(n))
     # rho = np.linalg.norm(W_md - (1/n)*np.ones(n)) ## more optimized?? 
     
-    return w_md, W_md, rho
+    return alpha_md, w_md, W_md, rho
 
 
 def fastest_averaging_constant_weight(A):
@@ -92,7 +92,7 @@ def fastest_averaging_constant_weight(A):
     rho = np.linalg.norm(I - A@np.diag(w_fa)@A.T - (1/n)*np.ones(n))
     # rho = np.linalg.norm(W_fa - (1/n)*np.ones(n)) ## more optimized ??
 
-    return w_fa, W_fa, rho
+    return alpha_fa, w_fa, W_fa, rho
 
 
 
@@ -141,12 +141,12 @@ def fdla_weights_symmetric(A):
     L = cp.Variable((n,n), symmetric=True)
     prob = cp.Problem(cp.Minimize(cp.atoms.norm2(J - A @ cp.diag(w) @ A.T)))
     prob.solve()
-    print(f'status: {prob.status}')
-    if prob.status not in ["infeasible", "unbounded"]:
-        # Otherwise, problem.value is inf or -inf, respectively.
-        print("Optimal value: %s" % prob.value)
-        for variable in prob.variables():
-            print("Variable %s: value %s" % (variable.name(), variable.value))
+    # print(f'status: {prob.status}')
+    # if prob.status not in ["infeasible", "unbounded"]:
+    #     # Otherwise, problem.value is inf or -inf, respectively.
+    #     print("Optimal value: %s" % prob.value)
+    #     for variable in prob.variables():
+    #         print("Variable %s: value %s" % (variable.name(), variable.value))
     w_fdla = w.value
     W_fdla = I - A @ np.diag(w_fdla) @ A.T      # compute the Weight matrix (P)
     return w_fdla, W_fdla, prob.value
@@ -217,13 +217,13 @@ def fmmc_weights(A):
                    J - L << s * I,
                    J - L >> -s * I]
     prob = cp.Problem(cp.Minimize(s), constraints)
-    prob.solve(verbose=True)
-    print(f'status: {prob.status}')
-    if prob.status not in ["infeasible", "unbounded"]:
-        # Otherwise, problem.value is inf or -inf, respectively.
-        print("Optimal value: %s" % prob.value)
-        for variable in prob.variables():
-            print("Variable %s: value %s" % (variable.name(), variable.value))    
+    prob.solve()
+    # print(f'status: {prob.status}')
+    # if prob.status not in ["infeasible", "unbounded"]:
+    #     # Otherwise, problem.value is inf or -inf, respectively.
+    #     print("Optimal value: %s" % prob.value)
+    #     for variable in prob.variables():
+    #         print("Variable %s: value %s" % (variable.name(), variable.value))    
     W_fmmc = I - A @ np.diag(w.value) @ A.T
     return w.value, W_fmmc, prob.value
 
@@ -257,15 +257,16 @@ def get_grad(w, C):
     for i in range(m):
         ij = np.nonzero(C[:,i])[0]
         dfdw[i] = 0.5 * (np.linalg.norm(F_inv[:,ij[0]] - F_inv[:,ij[1]]))**2 -\
-            0.5 * (np.linalg.norm(G_inv[:,ij[0]] - G_inv[:,ij[1]]))**2
+            0.5 * (np.linalg.norm(G_inv[:,ij[0]] - G_inv[:,ij[1]]))**2 # eq from 3.1
     return dfdw
 
 
+# eq 14
 def cost(x, C):
     n, m = np.shape(C)
-    W = np.eye(n) - get_S(x, C)
+    W = np.eye(n) - get_S(x, C) # eq 7
     eigvals, _ = np.linalg.eig(W)    
-    eigvals_sorted = np.sort(eigvals)[::-1]   # sort in ascending order
+    eigvals_sorted = np.sort(eigvals)[::-1]   # sort in ascending order (descending?)
     delta_ss = 0.0
     for i in range(1, n):
         delta_ss += 1 / (1 - eigvals_sorted[i]**2)
@@ -278,11 +279,11 @@ def obj_der(x, C):
 
 
 def lmsc_weights(C, obj=cost, jac=obj_der):
-    print('Warning: check the objective and the jacobian functions before running.')
+    # print('Warning: check the objective and the jacobian functions before running.')
     n, m = np.shape(C)
     x0, _, _ = metropolis_hastings_weights(C)   # initial guess
     res = minimize(obj, x0, args= (C,), method='BFGS' , \
-                   jac=jac, options={'gtol': 1e-06, 'disp': True})
+                   jac=jac, options={'gtol': 1e-06})
     w_lmsc = res.x
     W_lmsc = np.eye(n) - C @ np.diag(w_lmsc) @ C.T
     return w_lmsc, W_lmsc
