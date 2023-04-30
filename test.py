@@ -5,12 +5,12 @@ import numpy as np
 from numba import njit, prange
 from scipy.sparse.csgraph import laplacian
 
-from graph_optimization import fdla_weights_symmetric, fmmc_weights
+from graph_optimization import fdla_weights_symmetric, fmmc_weights, fastest_averaging_constant_weight, max_degree_weights, metropolis_hastings_weights
 
 
 def main():
 	N = 10
-	runs = 100
+	runs = 10000
 	T = 1000
 
 	# adjacency matrices
@@ -76,15 +76,8 @@ def main():
 		'8-agents'
 	]
 
-	markers = [
-		'o',
-		'^',
-		's',
-		'x',
-		'v',
-	]
 
-	
+	# cm = plt.get_cmap('gist_rainbow')
 	colors = [
 		'tab:blue',
 		'tab:orange',
@@ -96,6 +89,30 @@ def main():
 		'tab:gray',
 		'tab:olive',
 		'tab:cyan',
+	]
+
+	labels = [
+		'κ = 0.02',
+		'κ = 0.3',
+		'κ = 0.9',
+		'Constant-edge',
+		'Maximum-degree',
+		'Local-degree (MH)',
+		'FMMC',
+		'FDLA',
+		'LMSC',
+	]
+
+	markers = [
+		'o',
+		'^',
+		's',
+		'x',
+		'v',
+		'*',
+		'1',
+		'D',
+		'P',
 	]
 
 	ylim_bottoms = [22, 22, 20]
@@ -116,7 +133,7 @@ def main():
 	plt.rc('xtick', labelsize=MEDIUM_SIZE)
 	plt.rc('ytick', labelsize=MEDIUM_SIZE)
 
-	fig, ax = plt.subplots(1, 1, sharex=True, sharey=True)
+	fig, ax = plt.subplots()
 
 	# useful for agent wise plots
 	# colormap = plt.cm.nipy_spectral
@@ -137,6 +154,18 @@ def main():
 		PLabels.append('FMMC')
 		PMats.append(fmmc_weights(I)[1])
 
+		# constant-degree
+		PLabels.append('Constant-degree')
+		PMats.append(fastest_averaging_constant_weight(I)[1])
+
+		# max-degree
+		PLabels.append('Maximum-degree')
+		PMats.append(max_degree_weights(I)[1])
+
+		# local-degree (MH)
+		PLabels.append('Local-degree (MH)')
+		PMats.append(metropolis_hastings_weights(I)[1])
+
 		# FDLA
 		PLabels.append('FDLA')
 		PMats.append(fdla_weights_symmetric(I)[1])
@@ -145,16 +174,16 @@ def main():
 			# print(label)
 			# print(P)
 			res = run(runs, N, T, trueMeans, P)
-			resMod = run(runs, N, T, trueMeans, P, sigma_g=0)
+			# resMod = run(runs, N, T, trueMeans, P, sigma_g=0)
 
 			# log all agent wise data
-			np.save(f'data/{network}-{label}-{N}-{runs}.npy', res)
-			np.save(f'data/{network}-{label}-{N}-{runs}-MOD.npy', resMod)
+			np.save(f'testdata/{network}-{label}.npy', res)
+			# np.save(f'testdata/{network}-{label}-{N}-{runs}-MOD.npy', resMod)
 
-			# res = np.load(f'data/{network}-{label}-{N}.npy')
+			# res = np.load(f'data/{network}-{label}.npy')
 
 			res = np.mean(np.cumsum(res, axis=2), axis=1) # cumulative sum over T and avg over agents
-			resMod = np.mean(np.cumsum(resMod, axis=2), axis=1) # cumulative sum over T and avg over agents
+			# resMod = np.mean(np.cumsum(resMod, axis=2), axis=1) # cumulative sum over T and avg over agents
 
 			# for meanresidx, r in enumerate(res):
 			# 	sortedMeans = sorted(trueMeans[meanresidx])
@@ -163,7 +192,7 @@ def main():
 			# std = np.std(res, axis=0)
 			# std *= 2
 			mean = np.mean(res, axis=0) # avg over all runs
-			meanMod = np.mean(resMod, axis=0) # avg over all runs
+			# meanMod = np.mean(resMod, axis=0) # avg over all runs
 			# lower_bound = mean - std
 			# upper_bound = mean + std
 
@@ -174,7 +203,7 @@ def main():
 			# print(f'high_count: {high_count}')
 
 			ax.plot(mean, color=colors[idx], label=f'{label}', lw=2)
-			ax.plot(meanMod, color=colors[idx], alpha=0.5, marker='x', markevery=50, label=f'{label}-MOD', lw=2)
+			# ax.plot(meanMod, color=colors[idx], alpha=0.5, marker='x', markevery=50, label=f'{label}-MOD', lw=2)
 			# ax.fill_between(np.arange(T), upper_bound, lower_bound, alpha=0.4)
 			# ax2.errorbar(np.arange(T), mean, yerr=std, errorevery=50, marker=markers[idx], markevery=50, label=f'{label}', lw=2)
 
@@ -187,8 +216,8 @@ def main():
 		ax.legend()
 		ax.set_xlabel('Timesteps')
 		ax.set_ylabel('Average Cumulative Regret')
-		plt.savefig(f'img/{network}-{N}-{runs}-avg-cum-reg.svg', format='svg')
-		plt.savefig(f'img/{network}-{N}-{runs}-avg-cum-reg.png', format='png')
+		plt.savefig(f'testimg/{network}-avg-cum-reg.svg', format='svg')
+		plt.savefig(f'testimg/{network}-avg-cum-reg.png', format='png')
 		ax.clear()
 
 
