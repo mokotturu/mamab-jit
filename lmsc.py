@@ -17,38 +17,38 @@ def main():
 
 	# adjacency matrices
 	As = [
-		# all-to-all
-		np.array([
-			[0, 1, 1, 1, 1],
-			[1, 0, 1, 1, 1],
-			[1, 1, 0, 1, 1],
-			[1, 1, 1, 0, 1],
-			[1, 1, 1, 1, 0],
-		]),
-		# house
-		np.array([
-			[0, 1, 1, 0, 0],
-			[1, 0, 1, 1, 0],
-			[1, 1, 0, 0, 1],
-			[0, 1, 0, 0, 1],
-			[0, 0, 1, 1, 0],
-		]),
-		# ring
-		np.array([
-			[0, 1, 0, 0, 1],
-			[1, 0, 1, 0, 0],
-			[0, 1, 0, 1, 0],
-			[0, 0, 1, 0, 1],
-			[1, 0, 0, 1, 0],
-		]),
-		# line
-		np.array([
-			[0, 1, 0, 0, 0],
-			[1, 0, 1, 0, 0],
-			[0, 1, 0, 1, 0],
-			[0, 0, 1, 0, 1],
-			[0, 0, 0, 1, 0],
-		]),
+		# # all-to-all
+		# np.array([
+		# 	[0, 1, 1, 1, 1],
+		# 	[1, 0, 1, 1, 1],
+		# 	[1, 1, 0, 1, 1],
+		# 	[1, 1, 1, 0, 1],
+		# 	[1, 1, 1, 1, 0],
+		# ]),
+		# # house
+		# np.array([
+		# 	[0, 1, 1, 0, 0],
+		# 	[1, 0, 1, 1, 0],
+		# 	[1, 1, 0, 0, 1],
+		# 	[0, 1, 0, 0, 1],
+		# 	[0, 0, 1, 1, 0],
+		# ]),
+		# # ring
+		# np.array([
+		# 	[0, 1, 0, 0, 1],
+		# 	[1, 0, 1, 0, 0],
+		# 	[0, 1, 0, 1, 0],
+		# 	[0, 0, 1, 0, 1],
+		# 	[1, 0, 0, 1, 0],
+		# ]),
+		# # line
+		# np.array([
+		# 	[0, 1, 0, 0, 0],
+		# 	[1, 0, 1, 0, 0],
+		# 	[0, 1, 0, 1, 0],
+		# 	[0, 0, 1, 0, 1],
+		# 	[0, 0, 0, 1, 0],
+		# ]),
 		# star
 		np.array([
 			[0, 1, 1, 1, 1],
@@ -57,53 +57,53 @@ def main():
 			[1, 0, 0, 0, 0],
 			[1, 0, 0, 0, 0],
 		]),
-		# 8-agents
-		np.array([
-			[0, 1, 1, 1, 0, 0, 0, 0],
-			[1, 0, 1, 0, 1, 0, 0, 0],
-			[1, 1, 0, 1, 1, 0, 0, 0],
-			[1, 0, 1, 0, 1, 1, 1, 1],
-			[0, 1, 1, 1, 0, 1, 1, 1],
-			[0, 0, 0, 1, 1, 0, 1, 1],
-			[0, 0, 0, 1, 1, 1, 0, 1],
-			[0, 0, 0, 1, 1, 1, 1, 0],
-		]),
+		# # 8-agents
+		# np.array([
+		# 	[0, 1, 1, 1, 0, 0, 0, 0],
+		# 	[1, 0, 1, 0, 1, 0, 0, 0],
+		# 	[1, 1, 0, 1, 1, 0, 0, 0],
+		# 	[1, 0, 1, 0, 1, 1, 1, 1],
+		# 	[0, 1, 1, 1, 0, 1, 1, 1],
+		# 	[0, 0, 0, 1, 1, 0, 1, 1],
+		# 	[0, 0, 0, 1, 1, 1, 0, 1],
+		# 	[0, 0, 0, 1, 1, 1, 1, 0],
+		# ]),
 	]
 
 	# corresponding incidence matrices
 	Is = [
-		# all-to-all
-		np.array([
-			[ 1,  1,  1,  1,  0,  0,  0,  0,  0,  0],
-			[-1,  0,  0,  0,  1,  1,  1,  0,  0,  0],
-			[ 0, -1,  0,  0, -1,  0,  0,  1,  1,  0],
-			[ 0,  0, -1,  0,  0, -1,  0, -1,  0,  1],
-			[ 0,  0,  0, -1,  0,  0, -1,  0, -1, -1],
-		]),
-		# house
-		np.array([
-			[ 1,  0,  0,  0, -1,  0],
-			[ 0,  0,  0, -1,  1,  1],
-			[-1,  1,  0,  0,  0, -1],
-			[ 0,  0, -1,  1,  0,  0],
-			[ 0, -1,  1,  0,  0,  0],
-		]),
-		# ring
-		np.array([
-			[ 1,  0,  0,  0, -1],
-			[-1,  1,  0,  0,  0],
-			[ 0, -1,  1,  0,  0],
-			[ 0,  0, -1,  1,  0],
-			[ 0,  0,  0, -1,  1],
-		]),
-		# line
-		np.array([
-			[ 1,  0,  0,  0],
-			[-1,  1,  0,  0],
-			[ 0, -1,  1,  0],
-			[ 0,  0, -1,  1],
-			[ 0,  0,  0, -1],
-		]),
+		# # all-to-all
+		# np.array([
+		# 	[ 1,  1,  1,  1,  0,  0,  0,  0,  0,  0],
+		# 	[-1,  0,  0,  0,  1,  1,  1,  0,  0,  0],
+		# 	[ 0, -1,  0,  0, -1,  0,  0,  1,  1,  0],
+		# 	[ 0,  0, -1,  0,  0, -1,  0, -1,  0,  1],
+		# 	[ 0,  0,  0, -1,  0,  0, -1,  0, -1, -1],
+		# ]),
+		# # house
+		# np.array([
+		# 	[ 1,  0,  0,  0, -1,  0],
+		# 	[ 0,  0,  0, -1,  1,  1],
+		# 	[-1,  1,  0,  0,  0, -1],
+		# 	[ 0,  0, -1,  1,  0,  0],
+		# 	[ 0, -1,  1,  0,  0,  0],
+		# ]),
+		# # ring
+		# np.array([
+		# 	[ 1,  0,  0,  0, -1],
+		# 	[-1,  1,  0,  0,  0],
+		# 	[ 0, -1,  1,  0,  0],
+		# 	[ 0,  0, -1,  1,  0],
+		# 	[ 0,  0,  0, -1,  1],
+		# ]),
+		# # line
+		# np.array([
+		# 	[ 1,  0,  0,  0],
+		# 	[-1,  1,  0,  0],
+		# 	[ 0, -1,  1,  0],
+		# 	[ 0,  0, -1,  1],
+		# 	[ 0,  0,  0, -1],
+		# ]),
 		# star
 		np.array([
 			[ 1,  1,  1,  1],
@@ -112,26 +112,26 @@ def main():
 			[ 0,  0, -1,  0],
 			[ 0,  0,  0, -1],
 		]),
-		# 8-agents
-		np.array([
-			[  1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
-			[ -1,  0,  0,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
-			[  0, -1,  0, -1,  0,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
-			[  0,  0, -1,  0,  0, -1,  0,  1,  1,  1,  1,  0,  0,  0,  0,  0,  0],
-			[  0,  0,  0,  0, -1,  0, -1, -1,  0,  0,  0,  1,  1,  1,  0,  0,  0],
-			[  0,  0,  0,  0,  0,  0,  0,  0, -1,  0,  0, -1,  0,  0,  1,  1,  0],
-			[  0,  0,  0,  0,  0,  0,  0,  0,  0, -1,  0,  0, -1,  0, -1,  0,  1],
-			[  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, -1,  0,  0, -1,  0, -1, -1],
-		]),
+		# # 8-agents
+		# np.array([
+		# 	[  1,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+		# 	[ -1,  0,  0,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+		# 	[  0, -1,  0, -1,  0,  1,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0],
+		# 	[  0,  0, -1,  0,  0, -1,  0,  1,  1,  1,  1,  0,  0,  0,  0,  0,  0],
+		# 	[  0,  0,  0,  0, -1,  0, -1, -1,  0,  0,  0,  1,  1,  1,  0,  0,  0],
+		# 	[  0,  0,  0,  0,  0,  0,  0,  0, -1,  0,  0, -1,  0,  0,  1,  1,  0],
+		# 	[  0,  0,  0,  0,  0,  0,  0,  0,  0, -1,  0,  0, -1,  0, -1,  0,  1],
+		# 	[  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, -1,  0,  0, -1,  0, -1, -1],
+		# ]),
 	]
 
 	networks = [
-		'all-to-all',
-		'house',
-		'ring',
-		'line',
+		# 'all-to-all',
+		# 'house',
+		# 'ring',
+		# 'line',
 		'star',
-		'8-agents',
+		# '8-agents',
 	]
 
 	trueMeans = np.array([np.random.normal(0, 1, N) for _ in range(runs)])
@@ -249,7 +249,7 @@ def main():
 			reg = run(runs, N, T, trueMeans, P)
 			reg = np.mean(reg, axis=0)	# mean over runs
 
-			np.save(f'newtestdata/new_{networks[mat_idx].replace(" ", "-")}_reg_{labels[idx]}.npy', reg)
+			np.save(f'data/data/new_{networks[mat_idx].replace(" ", "-")}_reg_{labels[idx]}.npy', reg)
 			# reg = np.load(f'testdata/new_{networks[mat_idx].replace(" ", "-")}_reg_{labels[idx]}.npy')
 
 			# plot regret
@@ -260,8 +260,8 @@ def main():
 
 		ax.grid(True)
 		ax.legend()
-		plt.savefig(f'newtestimg/new_{networks[mat_idx].replace(" ", "-")}-reg.svg', format='svg', bbox_inches='tight')
-		plt.savefig(f'newtestimg/new_{networks[mat_idx].replace(" ", "-")}-reg.png', format='png', bbox_inches='tight')
+		plt.savefig(f'data/img/new_{networks[mat_idx].replace(" ", "-")}-reg.svg', format='svg', bbox_inches='tight')
+		plt.savefig(f'data/img/new_{networks[mat_idx].replace(" ", "-")}-reg.png', format='png', bbox_inches='tight')
 		fig, ax = plt.subplots()
 
 		fig.suptitle(f'{networks[mat_idx].title()} network')
@@ -270,7 +270,7 @@ def main():
 
 
 @njit(parallel=True)
-def run(runs: int, N: int, T: int, trueMeans: np.ndarray, P: np.ndarray, noisy_agents=np.array([0])) -> tuple:
+def run(runs: int, N: int, T: int, trueMeans: np.ndarray, P: np.ndarray, noisy_agents=np.array([1])) -> tuple:
 	'''
 	Plays coopucb2 given the number of runs, number of arms, timesteps, true
 	means of arms, and the P matrix of the network. Optimized to work with

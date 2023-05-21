@@ -257,7 +257,7 @@ def get_grad(w, C):
     for i in range(m):
         ij = np.nonzero(C[:,i])[0]
         dfdw[i] = 0.5 * (np.linalg.norm(F_inv[:,ij[0]] - F_inv[:,ij[1]]))**2 -\
-            0.5 * (np.linalg.norm(G_inv[:,ij[0]] - G_inv[:,ij[1]]))**2 # eq from 3.1
+            0.5 * (np.linalg.norm(G_inv[:,ij[0]] - G_inv[:,ij[1]]))**2 # eq 19
     return dfdw
 
 
