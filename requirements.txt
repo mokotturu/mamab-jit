@@ -5,3 +5,4 @@ numba
 scipy
 cvxpy
 jupyterlab
+tqdm
