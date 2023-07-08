@@ -6,3 +6,4 @@ scipy
 cvxpy
 jupyterlab
 tqdm
+ipympl

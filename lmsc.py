@@ -14,15 +14,19 @@ from graph_optimization import fdla_weights_symmetric, fmmc_weights, lmsc_weight
 
 
 def main():
-	num_arms = 4
-	num_runs = 100
-	num_timesteps = 3000
+	num_arms = 2
+	num_runs = 1000
+	num_timesteps = 1000
 	num_agents = 50
+
+
 
 	# adjacency matrices
 	As = [
-		# all-to-all auto
-		nx.to_numpy_array(nx.complete_graph(num_agents)),
+		# 3-regular 100
+		np.load('data/saved_networks/3-regular_100_nodes_adj.npy'),
+		# # all-to-all auto
+		# nx.to_numpy_array(nx.complete_graph(num_agents)),
 		# # house
 		# np.array([
 		# 	[0, 1, 1, 0, 0],
@@ -31,8 +35,8 @@ def main():
 		# 	[0, 1, 0, 0, 1],
 		# 	[0, 0, 1, 1, 0],
 		# ]),
-		# ring
-		nx.to_numpy_array(nx.cycle_graph(num_agents)),
+		# # ring
+		# nx.to_numpy_array(nx.cycle_graph(num_agents)),
 		# # line
 		# np.array([
 		# 	[0, 1, 0, 0, 0],
@@ -66,8 +70,10 @@ def main():
 
 	# corresponding incidence matrices
 	Is = [
-		# all-to-all auto
-		np.asarray(nx.linalg.graphmatrix.incidence_matrix(nx.complete_graph(num_agents), oriented=True).todense()),
+		# 3-regular 100
+		np.load('data/saved_networks/3-regular_100_nodes_inc.npy'),
+		# # all-to-all auto
+		# np.asarray(nx.linalg.graphmatrix.incidence_matrix(nx.complete_graph(num_agents), oriented=True).todense()),
 		# # house
 		# np.array([
 		# 	[ 1,  0,  0,  0, -1,  0],
@@ -76,8 +82,8 @@ def main():
 		# 	[ 0,  0, -1,  1,  0,  0],
 		# 	[ 0, -1,  1,  0,  0,  0],
 		# ]),
-		# ring
-		np.asarray(nx.linalg.graphmatrix.incidence_matrix(nx.cycle_graph(num_agents), oriented=True).todense()),
+		# # ring
+		# np.asarray(nx.linalg.graphmatrix.incidence_matrix(nx.cycle_graph(num_agents), oriented=True).todense()),
 		# # line
 		# np.array([
 		# 	[ 1,  0,  0,  0],
@@ -110,18 +116,19 @@ def main():
 	]
 
 	networks = [
-		'all-to-all',
+		'3-regular 100',
+		# 'all-to-all',
 		# 'house',
-		'ring',
+		# 'ring',
 		# 'line',
 		# 'star',
 		# '8-agents',
 		# 'large_50',
 	]
 
-	# trueMeans = np.array([np.random.normal(0, 1, num_arms) for _ in range(num_runs)])
-	trueMeans = np.array([[0.2646,  0.6135, 0.8950, 0.5764] for _ in range(num_runs)])
-	trueMeansGroups = np.array([[[0.0149,  0.7161, 0.7944, 0.6749], [0.5144,  0.5108, 0.9955, 0.4778]] for _ in range(num_runs)])
+	trueMeans = np.array([np.random.normal(0, 1, num_arms) for _ in range(num_runs)])
+	# trueMeans = np.array([[0.2646,  0.6135, 0.8950, 0.5764] for _ in range(num_runs)])
+	# trueMeansGroups = np.array([[[0.0149,  0.7161, 0.7944, 0.6749], [0.5144,  0.5108, 0.9955, 0.4778]] for _ in range(num_runs)])
 	# trueMeans = np.sort(trueMeans, axis=1)[:, ::-1]
 
 	# sizing
@@ -246,10 +253,10 @@ def main():
 
 		for idx, P in enumerate(Ps):
 			# coopucb2
-			# reg = coopucb2(num_runs, num_arms, num_timesteps, trueMeans, P)
+			reg, *_ = coopucb2(num_runs, num_arms, num_timesteps, trueMeans, P)
 
-			# d-UER
-			reg = dUER(num_runs, num_arms, num_timesteps, trueMeansGroups, P)
+			# # d-UER
+			# reg = dUER(num_runs, num_arms, num_timesteps, trueMeansGroups, P)
 
 			# save regret
 			reg = np.mean(reg, axis=0)	# mean over runs
@@ -358,6 +365,7 @@ def coopucb2(runs: int, num_arms: int, num_timesteps: int, trueMeans: np.ndarray
 	x1 = 2 * gamma / Geta
 
 	regret = np.zeros((runs, num_agents, num_timesteps))
+	selected_arm_snapshot = np.zeros(num_agents)
 
 	# run coop-ucb2 "runs" number of times
 	for run in prange(runs):
@@ -397,6 +405,9 @@ def coopucb2(runs: int, num_arms: int, num_timesteps: int, trueMeans: np.ndarray
 					regret[run, k, t] = bestArmMean - trueMeans[run, action]
 					xsi[k, action] += 1
 
+					if t == num_arms:
+						selected_arm_snapshot[k] = action
+
 			# # add noise
 			# for k in noisy_agents:
 			# 	rew[k, :] *= -1 * np.abs(np.random.normal(0, 1))
@@ -406,7 +417,7 @@ def coopucb2(runs: int, num_arms: int, num_timesteps: int, trueMeans: np.ndarray
 				n[:, i] = P @ (n[:, i] + xsi[:, i])
 				s[:, i] = P @ (s[:, i] + reward[:, i])
 
-	return regret
+	return regret, selected_arm_snapshot
 
 
 def spectralGap(P):
