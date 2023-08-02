@@ -12,8 +12,8 @@ from graph_optimization import fdla_weights_symmetric, fmmc_weights, lmsc_weight
 
 def main():
 	N = 100
-	runs = 1000
-	T = 5000
+	runs = 2000
+	T = 700
 
 	# adjacency matrices
 	As = [
@@ -25,6 +25,14 @@ def main():
 		# 	[1, 1, 1, 0, 1],
 		# 	[1, 1, 1, 1, 0],
 		# ]),
+		# house
+		np.array([
+			[0, 1, 1, 0, 0],
+			[1, 0, 1, 1, 0],
+			[1, 1, 0, 0, 1],
+			[0, 1, 0, 0, 1],
+			[0, 0, 1, 1, 0],
+		]),
 		# # star
 		# np.array([
 		# 	[0, 1, 1, 1, 1],
@@ -44,8 +52,8 @@ def main():
 			[0, 0, 0, 1, 1, 1, 0, 1],
 			[0, 0, 0, 1, 1, 1, 1, 0],
 		]),
-		# Large network 1
-		np.load('virus_adj.npy'),
+		# Large network 2
+		np.load('data/saved_networks/large2_adj.npy'),
 	]
 
 	# corresponding incidence matrices
@@ -58,6 +66,14 @@ def main():
 		# 	[ 0,  0, -1,  0,  0, -1,  0, -1,  0,  1],
 		# 	[ 0,  0,  0, -1,  0,  0, -1,  0, -1, -1],
 		# ]),
+		# house
+		np.array([
+			[ 1,  0,  0,  0, -1,  0],
+			[ 0,  0,  0, -1,  1,  1],
+			[-1,  1,  0,  0,  0, -1],
+			[ 0,  0, -1,  1,  0,  0],
+			[ 0, -1,  1,  0,  0,  0],
+		]),
 		# # star
 		# np.array([
 		# 	[ 1,  1,  1,  1],
@@ -77,15 +93,16 @@ def main():
 			[  0,  0,  0,  0,  0,  0, -1,  0,  0,  0,  0,  0, -1,  0, -1,  0,  1],
 			[  0,  0,  0,  0,  0,  0,  0, -1,  0,  0,  0,  0,  0, -1,  0, -1, -1],
 		]),
-		# Large network 1
-		np.load('virus_inc.npy'),
+		# Large network 2
+		np.load('data/saved_networks/large2_inc.npy'),
 	]
 
 	networks = [
 		# 'all-to-all',
+		'house',
 		# 'star',
 		'8-agents',
-		'virus',
+		'3-cluster',
 	]
 
 	trueMeans = np.array([np.random.normal(0, 1, N) for _ in range(runs)])
@@ -198,15 +215,15 @@ def main():
 
 		print(f'Network: {networks[mat_idx]}')
 		for idx, P in enumerate(Ps):
-			# reg, snerr = run(runs, N, T, trueMeans, P)
+			reg, snerr = run(runs, N, T, trueMeans, P)
 
-			# reg = np.mean(reg, axis=0)	# mean over runs
-			# snerr = np.mean(snerr, axis=0)	# mean over runs
+			reg = np.mean(reg, axis=0)	# mean over runs
+			snerr = np.mean(snerr, axis=0)	# mean over runs
 
-			# np.save(f'testdata/new_{networks[mat_idx].replace(" ", "-")}_snerr_{labels[idx]}.npy', snerr)
-			# np.save(f'testdata/new_{networks[mat_idx].replace(" ", "-")}_reg_{labels[idx]}.npy', reg)
-			snerr = np.load(f'testdata/new_{networks[mat_idx].replace(" ", "-")}_snerr_{labels[idx]}.npy')
-			reg = np.load(f'testdata/new_{networks[mat_idx].replace(" ", "-")}_reg_{labels[idx]}.npy')
+			np.save(f'data/data/new_{networks[mat_idx].replace(" ", "-")}_snerr_{labels[idx]}.npy', snerr)
+			np.save(f'data/data/new_{networks[mat_idx].replace(" ", "-")}_reg_{labels[idx]}.npy', reg)
+			# snerr = np.load(f'data/data/new_{networks[mat_idx].replace(" ", "-")}_snerr_{labels[idx]}.npy')
+			# reg = np.load(f'data/data/new_{networks[mat_idx].replace(" ", "-")}_reg_{labels[idx]}.npy')
 
 			means[idx] = np.mean(snerr, axis=0)	# mean over agents
 			means_maxs[idx] = np.max(means[idx])
@@ -219,8 +236,8 @@ def main():
 
 		ax.grid(True)
 		ax.legend()
-		plt.savefig(f'testimg/new_{networks[mat_idx].replace(" ", "-")}-snerr.svg', format='svg', bbox_inches='tight')
-		plt.savefig(f'testimg/new_{networks[mat_idx].replace(" ", "-")}-snerr.png', format='png', bbox_inches='tight')
+		plt.savefig(f'data/img/new_{networks[mat_idx].replace(" ", "-")}.svg', format='svg', bbox_inches='tight')
+		plt.savefig(f'data/img/new_{networks[mat_idx].replace(" ", "-")}.png', format='png', bbox_inches='tight')
 		fig, ax = plt.subplots()
 
 		fig.suptitle(f'{networks[mat_idx].title()} network')
@@ -239,6 +256,7 @@ def main():
 
 		ax.grid(True)
 		vert_lines = np.zeros(len(Ps))
+		yb, yu = 1, -1
 
 		for idx, P in enumerate(Ps):
 			decreasing_arr = means[idx, np.argmax(means[idx]):]
@@ -246,13 +264,19 @@ def main():
 
 			ax.plot(means[idx], marker=markers[idx], markevery=200, lw=2, linestyle='solid', color=colors[idx], label=labels[idx])
 			ax.axvline(vert_lines[idx], color=colors[idx], linestyle='dashed', lw=2)
-			# ax.set_ylim(0, 0.5)
+			ax.set_ylim(-0.01, 0.25)
 
 			axins.plot(means[idx], marker=markers[idx], markevery=200, lw=2, linestyle='solid', color=colors[idx], label=labels[idx])
 			axins.axvline(vert_lines[idx], color=colors[idx], linestyle='dashed', lw=2)
-			# axins.set_ylim(-0.01, 0.25)
+			
+			if yb > means[idx, int(np.floor(vert_lines[idx]))]:
+				yb = means[idx, int(np.floor(vert_lines[idx]))]
+			if yu < means[idx, int(np.floor(vert_lines[idx]))]:
+				yu = means[idx, int(np.floor(vert_lines[idx]))]
 
-		in_xl, in_xr, in_yb, in_yu = np.min(vert_lines) - 5, np.max(vert_lines[:-1]) + 5, 0, 0.05
+		print(np.array(list(zip(labels, vert_lines))))
+		vert_lines = np.sort(vert_lines)
+		in_xl, in_xr, in_yb, in_yu = vert_lines[0] - 2, vert_lines[-2] + 2, yb - 0.00125, yu + 0.00125
 
 		ax.fill_between((in_xl, in_xr), in_yb, in_yu, facecolor='black', alpha=0.2)
 		axins.set_xlim((in_xl, in_xr))
@@ -263,8 +287,8 @@ def main():
 
 		print(f'Simulation ended at {ctime(time())}')
 		ax.legend(bbox_to_anchor=(0.92, 0.5), loc='center left', bbox_transform=fig.transFigure)
-		plt.savefig(f'testimg/new_{networks[mat_idx].replace(" ", "-")}-errors.svg', format='svg', bbox_inches='tight')
-		plt.savefig(f'testimg/new_{networks[mat_idx].replace(" ", "-")}-errors.png', format='png', bbox_inches='tight')
+		plt.savefig(f'data/img/{networks[mat_idx].replace(" ", "-")}.svg', format='svg', bbox_inches='tight')
+		plt.savefig(f'data/img/{networks[mat_idx].replace(" ", "-")}.png', format='png', bbox_inches='tight')
 		fig.clear()
 
 
@@ -275,12 +299,12 @@ def run(runs: int, N: int, T: int, trueMeans: np.ndarray, P: np.ndarray) -> tupl
 	means of arms, and the P matrix of the network. Optimized to work with
 	numba.
 	'''
-	sigma_g = 10		# try 10
+	sigma_g = 1		# try 10
 	# eta = 2		# try 2, 2.2, 3.2
 	gamma = 2.0 	# try 1.9, 2.9
 	f = lambda t : np.sqrt(np.log(t))
 	Geta = 2.0		# try 1 - (eta ** 2)/16
-	var = 10		# variance for the gaussian distribution behind each arm
+	var = 1		# variance for the gaussian distribution behind each arm
 	M, _ = P.shape
 
 	omega = 2
