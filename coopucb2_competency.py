@@ -13,15 +13,18 @@ from graph_optimization import (fastest_averaging_constant_weight,
                                 metropolis_hastings_weights)
 
 
-def run(bandit_true_means: np.ndarray, changes_at: np.ndarray, competencies: np.ndarray, num_timesteps: int, adjacency_with_self: np.ndarray, weight_matrix: np.ndarray, experiment_name: str, ax=None, linestyle='-'):
-	if ax is None:
-		ax = plt.gca()
+def run(bandit_true_means: np.ndarray, changes_at: np.ndarray, competencies: np.ndarray, num_timesteps: int, adjacency_with_self: np.ndarray, weight_matrix: np.ndarray, experiment_name: str, axs=None):
+	if axs is None:
+		raise ValueError('ax must be provided')
 
 	# reset plt color cycle
-	ax.set_prop_cycle(None)
+	for _ax in axs:
+		_ax.set_prop_cycle(None)
+
+	ax_top, ax_bottom = axs
 
 	logging.info(f'started {experiment_name} version')
-	regret = coopucb2(
+	regret, percent_optimal_action = coopucb2(
 		bandit_true_means,
 		competencies,
 		num_timesteps,
@@ -30,18 +33,27 @@ def run(bandit_true_means: np.ndarray, changes_at: np.ndarray, competencies: np.
 
 	regret = np.cumsum(regret, axis=2) # cumulative regret over time
 	regret = np.mean(regret, axis=0) # average over runs
+	percent_optimal_action = np.mean(percent_optimal_action, axis=0) # average over runs
 
 	# np.save('data/data/changing_P_regret.npy', regret)
 	# regret = np.load('data/data/changing_P_regret.npy')
 
 	for agent_idx, agent_regret in enumerate(regret):
-		ax.plot(agent_regret, label=f'agent {agent_idx + 1}', linestyle=linestyle)
+		ax_top.plot(agent_regret, label=f'agent {agent_idx + 1}', linestyle='-')
 
 	regret = np.mean(regret, axis=0) # average over agents
-	ax.plot(regret, label=f'team average', color='black', linestyle=linestyle)
+	ax_top.plot(regret, label=f'team average', color='black', linestyle='--')
 
-	ax.title.set_text(experiment_name)
-	ax.grid()
+	ax_top.title.set_text(experiment_name)
+	ax_top.grid()
+
+	for agent_idx, agent_percent_optimal_action in enumerate(percent_optimal_action):
+		ax_bottom.plot(agent_percent_optimal_action, label=f'agent {agent_idx + 1}', linestyle='-')
+
+	percent_optimal_action = np.mean(percent_optimal_action, axis=0) # average over agents
+	ax_bottom.plot(percent_optimal_action, label=f'team average', color='black', linestyle='--')
+
+	ax_bottom.grid()
 
 	logging.info(f'ended {experiment_name} version')
 
@@ -53,12 +65,10 @@ def main():
 
 	# house
 	adjacency_matrix = np.array([
-		[0, 1, 1, 0, 0, 0],
-		[1, 0, 1, 1, 0, 0],
-		[1, 1, 0, 0, 1, 0],
-		[0, 1, 0, 0, 1, 0],
-		[0, 0, 1, 1, 0, 1],
-		[0, 0, 0, 0, 1, 0],
+		[0, 1, 0, 0],
+		[1, 0, 1, 1],
+		[0, 1, 0, 1],
+		[0, 1, 1, 0],
 	])
 	incidence_matrix = np.asarray(nx.linalg.graphmatrix.incidence_matrix(nx.from_numpy_array(adjacency_matrix), oriented=True).todense())
 	num_agents = adjacency_matrix.shape[0]
@@ -71,8 +81,8 @@ def main():
 	logging.info(f'incidence matrix:\n{incidence_matrix}')
 	logging.info(f'weight matrix:\n{weight_matrix}')
 
-	num_runs = 2000
-	num_arms = 10
+	num_runs = 100000
+	num_arms = 2
 	num_timesteps = 1000
 	changes_at = np.arange(num_timesteps, step=1000)
 	num_changes = changes_at.shape[0]
@@ -81,18 +91,19 @@ def main():
 	# plt.figure(figsize=(8, 5))
 
 	competencies_arrays = np.array([
-		np.array([0.2, 0.2, 0.2, 0.2, 0.2, 0.2]),
-		np.array([1.0, 1.0, 1.0, 1.0, 1.0, 0.2]),
-		np.array([1.0, 0.2, 1.0, 1.0, 1.0, 1.0]),
-		np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0]),
+		np.array([1.0, 1.0, 1.0, 1.0]),
+		np.array([0.2, 1.0, 1.0, 1.0]),
+		np.array([1.0, 0.2, 1.0, 1.0]),
+		np.array([1.0, 1.0, 0.2, 1.0]),
+		np.array([0.2, 0.2, 0.2, 0.2]),
 	])
 
 	num_experiments = competencies_arrays.shape[0]
-	num_experiment_cols = 4
-	num_experiment_rows = (num_experiments // num_experiment_cols)
+	num_experiment_cols = competencies_arrays.shape[0]
+	num_experiment_rows = 2
 
-	fig, ax = plt.subplots(num_experiment_rows, num_experiment_cols, figsize=(num_experiment_cols * 8, num_experiment_rows * 5), sharey=True)
-	ax = ax.flatten()
+	fig, axs = plt.subplots(num_experiment_rows, num_experiment_cols, figsize=(num_experiment_cols * 8, num_experiment_rows * 5), sharey='row')
+	# ax = ax.flatten()
 
 	for competencies_arr_idx, competencies_arr in enumerate(competencies_arrays):
 		run(
@@ -102,12 +113,11 @@ def main():
 			num_timesteps,
 			np.copy(adjacency_with_self),
 			np.copy(weight_matrix),
-			ax=ax[competencies_arr_idx],
-			linestyle='-',
+			axs=axs[:, competencies_arr_idx],
 			experiment_name=np.array2string(competencies_arr),
 		)
 
-	plt.suptitle(f'House, {num_runs} runs, {num_changes - 1} bandit changes, {num_arms} arms')
+	plt.suptitle(f'(3, 1) Lollipop, {num_runs} runs, {num_changes - 1} bandit changes, {num_arms} arms')
 	plt.xlabel('Timestep')
 	plt.ylabel('Regret')
 	plt.legend(loc='center left', bbox_to_anchor=(1, 0.5)) # legend on the right side
@@ -132,7 +142,7 @@ def coopucb2(bandit_true_means: np.ndarray, competencies: np.ndarray, num_timest
 
 	# Returns
 	regret: (num_runs, num_agents, num_timesteps) array of regret for each agent at each timestep
-	final_P: (num_agents, num_agents) final weight matrix of network
+	percent_optimal_action: (num_runs, num_agents, num_timesteps) array of the percentage of times the optimal action was selected by each agent at each timestep
 	'''
 
 	# constants, hyperparameters
@@ -152,6 +162,8 @@ def coopucb2(bandit_true_means: np.ndarray, competencies: np.ndarray, num_timest
 
 	# preallocate arrays
 	regret = np.zeros((num_runs, num_agents, num_timesteps))
+	times_best_arm_selected = np.zeros((num_runs, num_agents), dtype=np.int16)
+	percent_optimal_action = np.zeros((num_runs, num_agents, num_timesteps)) # keep track of the percentage of times the optimal action was selected by each agent
 
 	for run in prange(num_runs):
 		# estimated reward
@@ -188,6 +200,9 @@ def coopucb2(bandit_true_means: np.ndarray, competencies: np.ndarray, num_timest
 					xsi[k, action] += 1
 					s_real[current_change_idx, k, action] += reward[k, action]
 					n_real[current_change_idx, k, action] += 1
+
+					if action == best_arm_mean_idx:
+						times_best_arm_selected[run, k] += 1
 			else:
 				for k in range(num_agents):
 					for i in range(num_arms):
@@ -208,6 +223,11 @@ def coopucb2(bandit_true_means: np.ndarray, competencies: np.ndarray, num_timest
 					s_real[current_change_idx, k, action] += reward[k, action]
 					n_real[current_change_idx, k, action] += 1
 
+					if action == best_arm_mean_idx:
+						times_best_arm_selected[run, k] += 1
+
+			percent_optimal_action[run, :, t] = times_best_arm_selected[run, :] / (t + 1)
+
 			# update estimates using running consensus
 			for i in range(num_arms):
 				n[current_change_idx, :, i] = P @ (n[current_change_idx, :, i] + xsi[:, i])
@@ -215,7 +235,7 @@ def coopucb2(bandit_true_means: np.ndarray, competencies: np.ndarray, num_timest
 
 			current_bandit_t += 1
 
-	return regret
+	return regret, percent_optimal_action
 
 if __name__ == '__main__':
 	logging.basicConfig(filename='output_debug.log',filemode='w', format='%(asctime)s - %(message)s', level=logging.INFO)
