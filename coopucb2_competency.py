@@ -63,13 +63,17 @@ def main():
 	# network = nx.complete_graph(5) # all-to-all
 	# adjacency_matrix = nx.to_numpy_array(network)
 
-	# house
 	adjacency_matrix = np.array([
 		[0, 1, 0, 0],
 		[1, 0, 1, 1],
 		[0, 1, 0, 1],
 		[0, 1, 1, 0],
 	])
+	# nx.draw(nx.from_numpy_array(adjacency_matrix), with_labels=True)
+	# plt.savefig('data/img/networks/png/tadpole.png', format='png')
+	# plt.savefig('data/img/networks/svg/tadpole.svg', format='svg')
+	# return
+
 	incidence_matrix = np.asarray(nx.linalg.graphmatrix.incidence_matrix(nx.from_numpy_array(adjacency_matrix), oriented=True).todense())
 	num_agents = adjacency_matrix.shape[0]
 
@@ -81,7 +85,7 @@ def main():
 	logging.info(f'incidence matrix:\n{incidence_matrix}')
 	logging.info(f'weight matrix:\n{weight_matrix}')
 
-	num_runs = 100000
+	num_runs = 10000
 	num_arms = 2
 	num_timesteps = 1000
 	changes_at = np.arange(num_timesteps, step=1000)
@@ -121,7 +125,7 @@ def main():
 	plt.xlabel('Timestep')
 	plt.ylabel('Regret')
 	plt.legend(loc='center left', bbox_to_anchor=(1, 0.5)) # legend on the right side
-	# plt.save('latest_plt.png')
+	plt.savefig('latest_plt.png')
 	logging.info(f'ended script')
 	plt.show()
 

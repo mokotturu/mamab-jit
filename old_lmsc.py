@@ -15,9 +15,9 @@ from graph_optimization import (fastest_averaging_constant_weight,
 
 def main():
 	logging.info(f'started old_lmsc.py')
-	N = 50
-	runs = 500
-	T = 10000
+	N = 100
+	runs = 2000
+	T = 1000
 
 	# adjacency matrices
 	As = [
@@ -58,10 +58,12 @@ def main():
 		# ]),
 		# np.load('data/saved_networks/2_clusters_adj.npy'),
 		# np.load('data/saved_networks/3_clusters_adj.npy'),
-		np.load('data/saved_networks/4_clusters_adj.npy'),
+		# np.load('data/saved_networks/4_clusters_adj.npy'),
 		# np.load('data/saved_networks/5_clusters_adj.npy'),
-		# np.load('data/saved_networks/10_cluster_adj.npy'),
-		# np.load('data/saved_networks/3_lollipop_adj.npy'),
+		# # np.load('data/saved_networks/10_cluster_adj.npy'),
+		# # np.load('data/saved_networks/3_lollipop_adj.npy'),
+		# np.load('data/saved_networks/2_5_balanced_tree_adj.npy'),
+		np.load('data/saved_networks/30_line_adj.npy'),
 	]
 
 	# corresponding incidence matrices
@@ -103,10 +105,11 @@ def main():
 		# ]),
 		# np.load('data/saved_networks/2_clusters_inc.npy'),
 		# np.load('data/saved_networks/3_clusters_inc.npy'),
-		np.load('data/saved_networks/4_clusters_inc.npy'),
+		# np.load('data/saved_networks/4_clusters_inc.npy'),
 		# np.load('data/saved_networks/5_clusters_inc.npy'),
-		# np.load('data/saved_networks/10_cluster_inc.npy'),
-		# np.load('data/saved_networks/3_lollipop_inc.npy'),
+		# # np.load('data/saved_networks/10_cluster_inc.npy'),
+		# # np.load('data/saved_networks/3_lollipop_inc.npy'),
+		np.load('data/saved_networks/30_line_inc.npy'),
 	]
 
 	networks = [
@@ -116,10 +119,11 @@ def main():
 		# '8 agents',
 		# '2 clusters',
 		# '3 clusters',
-		'4 clusters',
+		# '4 clusters',
 		# '5 clusters',
-		# '10 clusters',
-		# '3 lollipop',
+		# # '10 clusters',
+		# # '3 lollipop',
+		'3 line',
 	]
 
 	trueMeans = np.array([np.random.normal(0, 1, N) for _ in range(runs)])
@@ -163,24 +167,25 @@ def main():
 
 	inset = [0.425, 0.4, 0.55, 0.55]
 
-	for mat_idx in range(len(As)):
-		Ps, rhos, labels = [], [], []
+	for mat_idx, A in enumerate(As):
+		Ps, rhos, labels, normal_labels = [], [], [], []
 
 		# uncomment to save an image of the networks
-		G = nx.from_numpy_array(As[mat_idx])
+		G = nx.from_numpy_array(A)
 		pos = nx.spring_layout(G)
 		nx.draw(G, pos)
-		plt.savefig(f'data/img/networks/{networks[mat_idx].replace(" ", "-")}_network.png', format='png')
-		plt.savefig(f'data/img/networks/{networks[mat_idx].replace(" ", "-")}_network.svg', format='svg')
+		plt.savefig(f'data/img/networks/png/{networks[mat_idx].replace(" ", "-")}_network.png', format='png')
+		plt.savefig(f'data/img/networks/svg/{networks[mat_idx].replace(" ", "-")}_network.svg', format='svg')
 		plt.clf()
 
 		for k in [0.02]:
-			P, rho = generateP(As[mat_idx], kappa=k)
+			P, rho = generateP(A, kappa=k)
 			Ps.append(P)
 			rhos.append(rho)
-			logging.info(f'{"kappa " + str(k):<20s}: {rho:.3f} {(1 / np.log(1 / rho)):.3f}')
+			logging.info(f'{"kappa " + str(k):<20s}: {rho} {(1 / np.log(1 / rho))}')
 			labels.append(fr'$\kappa$ = {k}')
-			# logging.info(f'\n{P}')
+			normal_labels.append(fr'$\kappa$ = {k}')
+			logging.info(f'\n{P}')
 
 		# constant edge
 		alpha, _, P, rho = fastest_averaging_constant_weight(Is[mat_idx])
@@ -189,6 +194,7 @@ def main():
 		rhos.append(rho)
 		logging.info(f'{"Constant-edge":<20s}: {rho:.3f} {(1 / np.log(1 / rho)):.3f}')
 		labels.append(fr'Constant-edge ($\alpha$ = {alpha:.3f})')
+		normal_labels.append(fr'Constant-edge')
 		# logging.info(f'\n{P}')
 
 		# maximum degree
@@ -198,6 +204,7 @@ def main():
 		rhos.append(rho)
 		logging.info(f'{"Max-degree":<20s}: {rho:.3f} {(1 / np.log(1 / rho)):.3f}')
 		labels.append(fr'Maximum-degree ($\alpha$ = {alpha:.3f})')
+		normal_labels.append(fr'Maximum-degree')
 		# logging.info(f'\n{P}')
 
 		# local degree (MH)
@@ -205,27 +212,30 @@ def main():
 		rho = get_rho(P)
 		Ps.append(P)
 		rhos.append(rho)
-		logging.info(f'{"Local-degree":<20s}: {rho:.3f} {(1 / np.log(1 / rho)):.3f}')
+		logging.info(f'{"Local-degree":<20s}: {rho} {(1 / np.log(1 / rho))}')
 		labels.append(fr'Local-degree')
-		# logging.info(f'\n{P}')
+		normal_labels.append(fr'Local-degree')
+		logging.info(f'\n{P}')
 
 		# fmmc
 		_, P, rho = fmmc_weights(Is[mat_idx])
 		rho = get_rho(P)
 		Ps.append(P)
 		rhos.append(rho)
-		logging.info(f'{"FMMC":<20s}: {rho:.3f} {(1 / np.log(1 / rho)):.3f}')
+		logging.info(f'{"FMMC":<20s}: {rho} {(1 / np.log(1 / rho))}')
 		labels.append('FMMC')
-		# logging.info(f'\n{P}')
+		normal_labels.append('FMMC')
+		logging.info(f'\n{P}')
 
 		# fdla
 		_, P, rho = fdla_weights_symmetric(Is[mat_idx])
 		rho = get_rho(P)
 		Ps.append(P)
 		rhos.append(rho)
-		logging.info(f'{"FDLA":<20s}: {rho:.3f} {(1 / np.log(1 / rho)):.3f}')
+		logging.info(f'{"FDLA":<20s}: {rho} {(1 / np.log(1 / rho))}')
 		labels.append('FDLA')
-		# logging.info('\n\n')
+		normal_labels.append('FDLA')
+		logging.info(f'\n{P}')
 
 		# in_xl, in_xr, in_yb, in_yu = axins_limits[mat_idx]
 		fig, ax = plt.subplots()
@@ -254,18 +264,18 @@ def main():
 			means_maxs[P_idx] = np.max(means[P_idx])
 
 			# plot regret
-			fig.suptitle(f'{networks[mat_idx].title()} network')
+			fig.suptitle(f'{networks[mat_idx].title()} network, {runs} runs, {T} timesteps, {N} arms, {A.shape[0]} agents')
 			fig.supxlabel('Timesteps')
 			fig.supylabel('Regret')
 			ax.plot(np.cumsum(np.mean(reg, axis=0)), marker=markers[P_idx], markevery=200, lw=2, linestyle='solid', color=colors[P_idx], label=labels[P_idx])
 
 		ax.grid(True)
 		ax.legend()
-		plt.savefig(f'data/img/{networks[mat_idx].replace(" ", "-")}_regret.svg', format='svg', bbox_inches='tight')
-		plt.savefig(f'data/img/{networks[mat_idx].replace(" ", "-")}_regret.png', format='png', bbox_inches='tight')
+		plt.savefig(f'data/img/svg/{networks[mat_idx].replace(" ", "-")}_regret.svg', format='svg', bbox_inches='tight')
+		plt.savefig(f'data/img/png/{networks[mat_idx].replace(" ", "-")}_regret.png', format='png', bbox_inches='tight')
 		fig, ax = plt.subplots()
 
-		# fig.suptitle(f'{networks[mat_idx].title()} network')
+		# fig.suptitle(f'{networks[mat_idx].title()} network, {runs} runs, {T} timesteps, {N} arms, {A.shape[0]} agents')
 		fig.supxlabel('Timesteps')
 		fig.supylabel('Mean estimate error for the best arm')
 
@@ -310,26 +320,25 @@ def main():
 		con = ConnectionPatch(xyA=(in_xr, in_yu), coordsA=ax.transData, xyB=(in_xl, in_yb), coordsB=axins.transData, color='black')
 		fig.add_artist(con)
 
-		# ax.legend(bbox_to_anchor=(0.92, 0.5), loc='center left', bbox_transform=fig.transFigure)
-		plt.savefig(f'data/img/{networks[mat_idx].replace(" ", "-")}.svg', format='svg', bbox_inches='tight')
-		plt.savefig(f'data/img/{networks[mat_idx].replace(" ", "-")}.png', format='png', bbox_inches='tight')
+		# ax.legend(bbox_to_anchor=(0.5, 1.05), loc='upper center', bbox_transform=fig.transFigure, ncols=3)
+		plt.savefig(f'data/img/svg/{networks[mat_idx].replace(" ", "-")}_snerr.svg', format='svg', bbox_inches='tight')
+		plt.savefig(f'data/img/png/{networks[mat_idx].replace(" ", "-")}_snerr.png', format='png', bbox_inches='tight')
 
 
 		fig, ax = plt.subplots()
 		for P_idx, P in enumerate(Ps):
 			ax.plot(team_percent_optimal_actions[P_idx], lw=2, linestyle='solid', label=labels[P_idx], color=colors[P_idx], marker=markers[P_idx], markevery=200)
 		ax.grid(True)
-		ax.legend()
+		# ax.legend()
 		fig.supxlabel('Timesteps')
 		fig.supylabel('Percent optimal action')
-		fig.suptitle(f'{networks[mat_idx].title()} network')
+		fig.suptitle(f'{networks[mat_idx].title()} network, {runs} runs, {T} timesteps, {N} arms, {A.shape[0]} agents')
 
 		# ax.set_xlim(4800, 5000)
 		# ax.set_ylim(0.9525, 0.9575)
 
-		plt.savefig(f'data/img/{networks[mat_idx].replace(" ", "-")}_percent_optimal_action.png', format='png', bbox_inches='tight')
+		plt.savefig(f'data/img/png/{networks[mat_idx].replace(" ", "-")}_percent_optimal_action.png', format='png', bbox_inches='tight')
 
-		plt.show()
 		fig.clear()
 		logging.info(f'finished experiments for {mat_idx}')
 
