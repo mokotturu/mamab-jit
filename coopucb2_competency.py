@@ -1,8 +1,10 @@
+import argparse
 import logging
 from pathlib import Path
 from time import ctime, time
 
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import networkx as nx
 import numpy as np
 from networkx.drawing.nx_pydot import graphviz_layout
@@ -14,45 +16,14 @@ from graph_optimization import (fastest_averaging_constant_weight,
                                 metropolis_hastings_weights)
 from old_lmsc import generateP
 
-COLORS = [
-	'tab:blue',
-	'tab:orange',
-	'tab:green',
-	'tab:red',
-	'tab:purple',
-	'tab:brown',
-	'tab:pink',
-	'tab:gray',
-	'tab:olive',
-	'tab:cyan',
-]
-
-def main():
+def main(args):
 	logging.info(f'started script')
-	# adjacency_matrix = np.load('data/saved_networks/kite_with_2_tails_adj.npy')
-	network_name = 'tadpole with 2 tails'
-	alg_type = coopucb2_limited_communication
-	# alg_type = coopucb2_og
-	# convert function name to string
-	alg_type_str = alg_type.__name__
-
-	# adjacency_matrix = np.array([
-	# 	[0, 0, 1, 0, 0],
-	# 	[0, 0, 1, 0, 0],
-	# 	[1, 1, 0, 1, 1],
-	# 	[0, 0, 1, 0, 1],
-	# 	[0, 0, 1, 1, 0],
-	# ])
-
-	adjacency_matrix = np.array([
-		[0, 1, 0, 0],
-		[1, 0, 1, 1],
-		[0, 1, 0, 1],
-		[0, 1, 1, 0],
-	])
-	# nx.draw(nx.from_numpy_array(adjacency_matrix), with_labels=True)
-	# plt.savefig(f'data/img/networks/png/{network_name.replace(" ", "_")}.png', format='png')
-	# plt.savefig(f'data/img/networks/svg/{network_name.replace(" ", "_")}.svg', format='svg')
+	network_name = args.network
+	adjacency_matrix = np.load(f'data/saved_networks/{network_name}_adj.npy')
+	network_name += '_new_c_every'
+	# adjacency_matrix = nx.to_numpy_array(nx.star_graph(4))
+	alg_type = coopucb2_og if args.alg == 'coopucb2_og' else coopucb2_limited_communication
+	alg_type_str = args.alg
 
 	incidence_matrix = np.asarray(nx.linalg.graphmatrix.incidence_matrix(nx.from_numpy_array(adjacency_matrix), oriented=True).todense())
 	num_agents = adjacency_matrix.shape[0]
@@ -62,23 +33,8 @@ def main():
 
 	# weight_matrix = adjacency_with_self / neighbor_count[:, None]
 	# weight_matrix, _ = generateP(adjacency_matrix, 0.6)
+	_, weight_matrix, _ = fmmc_weights(incidence_matrix)
 
-	# weight matrix for tadpole
-	# weight_matrix = np.array([
-	# 	[0.75, 0.25, 0.00, 0.00],
-	# 	[0.25, 0.25, 0.25, 0.25],
-	# 	[0.00, 0.25, 0.50, 0.25],
-	# 	[0.00, 0.25, 0.25, 0.50],
-	# ])
-
-	# weight matrix for tadpole with 2 tails
-	weight_matrix = np.array([
-		[0.80, 0.00, 0.20, 0.00, 0.00],
-		[0.00, 0.80, 0.20, 0.00, 0.00],
-		[0.20, 0.20, 0.20, 0.20, 0.20],
-		[0.00, 0.00, 0.20, 0.60, 0.20],
-		[0.00, 0.00, 0.20, 0.20, 0.60],
-	])
 	logging.info(f'incidence matrix:\n{incidence_matrix}')
 	logging.info(f'weight matrix:\n{weight_matrix}')
 
@@ -100,17 +56,24 @@ def main():
 	# 	np.array([0.2, 0.2, 0.2, 0.2]),
 	# ])
 	competencies_arrays = np.array([
-		np.array([1.0, 1.0, 1.0, 1.0, 1.0]),
-		np.array([0.2, 1.0, 1.0, 1.0, 1.0]),
-		np.array([0.2, 0.2, 1.0, 1.0, 1.0]),
-		np.array([1.0, 1.0, 1.0, 1.0, 0.2]),
-		np.array([1.0, 1.0, 1.0, 0.2, 0.2]),
-		np.array([0.2, 0.2, 0.2, 0.2, 0.2]),
+		np.ones(num_agents),
+		# np.array([1.0 if i < 10 else 0.2 for i in range(num_agents)]),
+		np.array([0.2, 1.0, 1.0, 1.0]),
+		np.array([1.0, 0.2, 1.0, 1.0]),
+		np.array([1.0, 1.0, 0.2, 0.2]),
+		np.array([0.2, 0.2, 0.2, 0.2]),
 	])
+
+	# linestyles = ['-' if i < 10 else ':' for i in range(num_agents)]
+	linestyles = ['-' for i in range(num_agents)]
+	linemarkers = list(Line2D.markers)[:-4] # remove last 4 entries as they're invalid markers
 
 	num_experiments = competencies_arrays.shape[0]
 	num_experiment_cols = competencies_arrays.shape[0]
 	num_experiment_rows = 3
+
+	cmap = plt.get_cmap('tab10')
+	COLORS = cmap(np.arange(num_agents))
 
 	fig, axs = plt.subplots(num_experiment_rows, num_experiment_cols, figsize=(num_experiment_cols * 8, num_experiment_rows * 5), sharey='row')
 	# ax = ax.flatten()
@@ -126,6 +89,9 @@ def main():
 			experiment_name=np.array2string(competencies_arr),
 			alg_type=alg_type,
 			axs=axs[:, competencies_arr_idx],
+			colors=COLORS,
+			linestyles=linestyles,
+			linemarkers=linemarkers,
 		)
 
 	plt.suptitle(f'{network_name.title()} graph, {num_runs} runs, {num_changes - 1} bandit changes, {num_arms} arms')
@@ -138,7 +104,7 @@ def main():
 	plt.show()
 
 
-def run(bandit_true_means: np.ndarray, changes_at: np.ndarray, competencies: np.ndarray, num_timesteps: int, adjacency_with_self: np.ndarray, weight_matrix: np.ndarray, experiment_name: str, alg_type, axs=None):
+def run(bandit_true_means: np.ndarray, changes_at: np.ndarray, competencies: np.ndarray, num_timesteps: int, adjacency_with_self: np.ndarray, weight_matrix: np.ndarray, experiment_name: str, alg_type, axs=None, colors=None, linestyles=None, linemarkers=None):
 	if axs is None:
 		raise ValueError('ax must be provided')
 
@@ -169,7 +135,8 @@ def run(bandit_true_means: np.ndarray, changes_at: np.ndarray, competencies: np.
 
 	# plot regret
 	for agent_idx, agent_regret in enumerate(regret):
-		ax_top.plot(agent_regret, label=f'agent {agent_idx + 1}', linestyle='-', color=COLORS[agent_idx])
+		ax_top.plot(agent_regret, label=f'agent {agent_idx + 1}', linestyle=linestyles[agent_idx], alpha=(0.5 + (agent_idx % 2) / 2), marker=f'${agent_idx + 1}$', markevery=num_timesteps // 6, color=colors[agent_idx])
+		logging.info(f'agent {agent_idx + 1} final regret: {agent_regret[-1]}')
 
 	regret = np.mean(regret, axis=0) # average over agents
 	ax_top.plot(regret, label=f'team average', color='black', linestyle='--')
@@ -198,10 +165,10 @@ def run(bandit_true_means: np.ndarray, changes_at: np.ndarray, competencies: np.
 	for agent_idx, agent_s_n_error in enumerate(s_n_error):
 		decreasing_errors = agent_s_n_error[np.argmax(agent_s_n_error):]
 		five_percent_line = np.argmax(agent_s_n_error) + np.argmax(decreasing_errors < 0.05 * np.max(individual_agent_max_errors))
-		ax_middle.plot(agent_s_n_error, label=f'agent {agent_idx + 1}', linestyle='-', color=COLORS[agent_idx])
-		axins.plot(agent_s_n_error, label=f'agent {agent_idx + 1}', linestyle='-', color=COLORS[agent_idx])
-		# ax_middle.axvline(five_percent_line, linestyle='--', color=COLORS[agent_idx])
-		# axins.axvline(five_percent_line, linestyle='--', color=COLORS[agent_idx])
+		ax_middle.plot(agent_s_n_error, label=f'agent {agent_idx + 1}', linestyle=linestyles[agent_idx], alpha=(0.5 + (agent_idx % 2) / 2), marker=f'${agent_idx + 1}$', markevery=num_timesteps // 6, color=colors[agent_idx])
+		axins.plot(agent_s_n_error, label=f'agent {agent_idx + 1}', linestyle=linestyles[agent_idx], alpha=(0.5 + (agent_idx % 2) / 2), marker=f'${agent_idx + 1}$', markevery=num_timesteps // 6, color=colors[agent_idx])
+		# ax_middle.axvline(five_percent_line, linestyle=linestyles[agent_idx], color=colors[agent_idx])
+		# axins.axvline(five_percent_line, linestyle=linestyles[agent_idx], color=colors[agent_idx])
 
 	s_n_error = np.mean(s_n_error, axis=0) # average over agents
 	ax_middle.plot(s_n_error, label=f'team average', color='black', linestyle='--')
@@ -214,7 +181,7 @@ def run(bandit_true_means: np.ndarray, changes_at: np.ndarray, competencies: np.
 
 	# plot percent optimal action
 	for agent_idx, agent_percent_optimal_action in enumerate(percent_optimal_action):
-		ax_bottom.plot(agent_percent_optimal_action, label=f'agent {agent_idx + 1}', linestyle='-', color=COLORS[agent_idx])
+		ax_bottom.plot(agent_percent_optimal_action, label=f'agent {agent_idx + 1}', linestyle=linestyles[agent_idx], alpha=(0.5 + (agent_idx % 2) / 2), marker=f'${agent_idx + 1}$', markevery=num_timesteps // 6, color=colors[agent_idx])
 
 	percent_optimal_action = np.mean(percent_optimal_action, axis=0) # average over agents
 	ax_bottom.plot(percent_optimal_action, label=f'team average', color='black', linestyle='--')
@@ -227,7 +194,7 @@ def run(bandit_true_means: np.ndarray, changes_at: np.ndarray, competencies: np.
 
 
 @njit(parallel=True)
-def coopucb2_limited_communication(bandit_true_means: np.ndarray, competencies: np.ndarray, num_timesteps: int, P: np.ndarray, comm_every_t: int=20):
+def coopucb2_limited_communication(bandit_true_means: np.ndarray, competencies: np.ndarray, num_timesteps: int, P: np.ndarray, comm_every_t: int=50):
 	'''
 	Plays coopucb2 given the number of runs, number of arms, timesteps, true
 	means of arms, and the P matrix of the network. Optimized to work with
@@ -274,9 +241,6 @@ def coopucb2_limited_communication(bandit_true_means: np.ndarray, competencies: 
 		s = np.zeros((num_changes, num_agents, num_arms)) # estimated cumulative expected reward
 		n = np.zeros((num_changes, num_agents, num_arms)) # estimated number of times an arm has been selected by each agent
 
-		# s_prime = np.zeros((num_changes, num_agents, num_arms))
-		# n_prime = np.zeros((num_changes, num_agents, num_arms))
-
 		reward = np.zeros((num_agents, num_arms)) # reward vector in that timestep
 		xsi = np.zeros((num_agents, num_arms)) # number of times that arm has been selected in that timestep
 		# cumulated_reward = np.zeros((num_agents, num_arms))
@@ -298,7 +262,7 @@ def coopucb2_limited_communication(bandit_true_means: np.ndarray, competencies: 
 					xsi[k] = np.zeros(num_arms)
 					action = current_bandit_t
 
-					reward[k, action] = np.random.normal(bandit[action], min_variance / competencies[k])
+					reward[k, action] = np.random.normal(bandit[action] * competencies[k], min_variance / competencies[k])
 					total_individual_rewards[k] += reward[k, action]
 					regret[run, k, t] = best_arm_mean - bandit[action]
 					xsi[k, action] += 1
@@ -318,7 +282,7 @@ def coopucb2_limited_communication(bandit_true_means: np.ndarray, competencies: 
 					xsi[k] = np.zeros(num_arms)
 
 					action = np.argmax(Q[current_change_idx, k, :])
-					reward[k, action] = np.random.normal(bandit[action], min_variance / competencies[k])
+					reward[k, action] = np.random.normal(bandit[action] * competencies[k], min_variance / competencies[k])
 					total_individual_rewards[k] += reward[k, action]
 					regret[run, k, t] = best_arm_mean - bandit[action]
 					xsi[k, action] += 1
@@ -334,20 +298,11 @@ def coopucb2_limited_communication(bandit_true_means: np.ndarray, competencies: 
 			for i in range(num_arms):
 				s[current_change_idx, :, i] += reward[:, i]
 				n[current_change_idx, :, i] += xsi[:, i]
-				# cumulated_reward[:, i] += reward[:, i]
-				# cumulated_xsi[:, i] += xsi[:, i]
 
 			if t % comm_every_t == 0:
 				for i in range(num_arms):
-					# s[current_change_idx, :, i] = P @ (s[current_change_idx, :, i] + cumulated_reward[:, i])
-					# n[current_change_idx, :, i] = P @ (n[current_change_idx, :, i] + cumulated_xsi[:, i])
 					s[current_change_idx, :, i] = P @ s[current_change_idx, :, i]
 					n[current_change_idx, :, i] = P @ n[current_change_idx, :, i]
-
-				# s_prime = s
-				# n_prime = n
-				# cumulated_reward = np.zeros((num_agents, num_arms))
-				# cumulated_xsi = np.zeros((num_agents, num_arms))
 
 			current_bandit_t += 1
 
@@ -531,7 +486,7 @@ def coopucb2_og(bandit_true_means: np.ndarray, competencies: np.ndarray, num_tim
 					xsi[k] = np.zeros(num_arms)
 					action = current_bandit_t
 
-					reward[k, action] = np.random.normal(bandit[action], min_variance / competencies[k])
+					reward[k, action] = np.random.normal(bandit[action] * competencies[k], min_variance / competencies[k])
 					total_individual_rewards[k] += reward[k, action]
 					regret[run, k, t] = best_arm_mean - bandit[action]
 					xsi[k, action] += 1
@@ -551,7 +506,7 @@ def coopucb2_og(bandit_true_means: np.ndarray, competencies: np.ndarray, num_tim
 					xsi[k] = np.zeros(num_arms)
 
 					action = np.argmax(Q[current_change_idx, k, :])
-					reward[k, action] = np.random.normal(bandit[action], min_variance / competencies[k])
+					reward[k, action] = np.random.normal(bandit[action] * competencies[k], min_variance / competencies[k])
 					total_individual_rewards[k] += reward[k, action]
 					regret[run, k, t] = best_arm_mean - bandit[action]
 					xsi[k, action] += 1
@@ -575,4 +530,10 @@ def coopucb2_og(bandit_true_means: np.ndarray, competencies: np.ndarray, num_tim
 if __name__ == '__main__':
 	logging.basicConfig(filename=f'output_{Path(__file__).stem}.log',filemode='w', format='%(asctime)s - %(message)s', level=logging.INFO)
 	np.set_printoptions(linewidth=9999999)
-	main()
+	# setup argparse
+	parser = argparse.ArgumentParser()
+	parser.add_argument('--network', type=str, default='tadpole')
+	parser.add_argument('--alg', type=str, default='coopucb2_og')
+	args = parser.parse_args()
+
+	main(args)
