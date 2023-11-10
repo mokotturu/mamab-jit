@@ -20,7 +20,7 @@ def main(args):
 	logging.info(f'started script')
 	network_name = args.network
 	adjacency_matrix = np.load(f'data/saved_networks/{network_name}_adj.npy')
-	network_name += '_new_c_every'
+	network_name += '_c_randn'
 	# adjacency_matrix = nx.to_numpy_array(nx.star_graph(4))
 	alg_type = coopucb2_og if args.alg == 'coopucb2_og' else coopucb2_limited_communication
 	alg_type_str = args.alg
@@ -57,7 +57,6 @@ def main(args):
 	# ])
 	competencies_arrays = np.array([
 		np.ones(num_agents),
-		# np.array([1.0 if i < 10 else 0.2 for i in range(num_agents)]),
 		np.array([0.2, 1.0, 1.0, 1.0]),
 		np.array([1.0, 0.2, 1.0, 1.0]),
 		np.array([1.0, 1.0, 0.2, 0.2]),
@@ -74,6 +73,7 @@ def main(args):
 
 	cmap = plt.get_cmap('tab10')
 	COLORS = cmap(np.arange(num_agents))
+	# COLORS = cmap(np.linspace(0, 1, num_agents))
 
 	fig, axs = plt.subplots(num_experiment_rows, num_experiment_cols, figsize=(num_experiment_cols * 8, num_experiment_rows * 5), sharey='row')
 	# ax = ax.flatten()
@@ -262,7 +262,10 @@ def coopucb2_limited_communication(bandit_true_means: np.ndarray, competencies: 
 					xsi[k] = np.zeros(num_arms)
 					action = current_bandit_t
 
-					reward[k, action] = np.random.normal(bandit[action] * competencies[k], min_variance / competencies[k])
+					reward[k, action] = np.random.normal(
+						bandit[action] * (competencies[k] + np.random.randn()),
+						min_variance / (competencies[k] * np.abs(np.random.randn()))
+					) if competencies[k] < 1 else np.random.normal(bandit[action], min_variance / competencies[k])
 					total_individual_rewards[k] += reward[k, action]
 					regret[run, k, t] = best_arm_mean - bandit[action]
 					xsi[k, action] += 1
@@ -282,7 +285,10 @@ def coopucb2_limited_communication(bandit_true_means: np.ndarray, competencies: 
 					xsi[k] = np.zeros(num_arms)
 
 					action = np.argmax(Q[current_change_idx, k, :])
-					reward[k, action] = np.random.normal(bandit[action] * competencies[k], min_variance / competencies[k])
+					reward[k, action] = np.random.normal(
+						bandit[action] * (competencies[k] + np.random.randn()),
+						min_variance / (competencies[k] * np.abs(np.random.randn()))
+					) if competencies[k] < 1 else np.random.normal(bandit[action], min_variance / competencies[k])
 					total_individual_rewards[k] += reward[k, action]
 					regret[run, k, t] = best_arm_mean - bandit[action]
 					xsi[k, action] += 1
@@ -307,117 +313,6 @@ def coopucb2_limited_communication(bandit_true_means: np.ndarray, competencies: 
 			current_bandit_t += 1
 
 	return regret, s_n_error, percent_optimal_action
-
-
-@njit(parallel=True)
-def coopucb2_mod(bandit_true_means: np.ndarray, competencies: np.ndarray, num_timesteps: int, P: np.ndarray):
-	'''
-	Plays coopucb2 given the number of runs, number of arms, timesteps, true
-	means of arms, and the P matrix of the network. Optimized to work with
-	numba.
-
-	## Parameters
-	bandit_true_means: (num_runs, num_changes, num_arms) array of true means of arms
-	competencies: (num_agents) array of agent competencies
-	num_timesteps: number of timesteps to run the algorithm
-	P: (num_agents, num_agents) weight matrix of network for information sharing
-
-	# Returns
-	regret: (num_runs, num_agents, num_timesteps) array of regret for each agent at each timestep
-	percent_optimal_action: (num_runs, num_agents, num_timesteps) array of the percentage of times the optimal action was selected by each agent at each timestep
-	'''
-
-	# constants, hyperparameters
-	num_runs, num_changes, num_arms = bandit_true_means.shape
-	current_change_idx = 0
-	num_agents, _ = P.shape
-
-	sigma_g = 1
-	eta = 2 # try 2, 2.2, 3.2
-	gamma = 2.9 # try 1.9, 2.9
-	f = lambda t : np.sqrt(np.log(t))
-	min_variance = 1 # minimum variance for the gaussian distribution behind each arm
-
-	# precompute constants
-	G_eta = 1 - (eta ** 2) / 16
-	c0 = 2 * gamma / G_eta
-
-	# preallocate arrays
-	regret = np.zeros((num_runs, num_agents, num_timesteps))
-	times_best_arm_selected = np.zeros((num_runs, num_agents), dtype=np.int16)
-	percent_optimal_action = np.zeros((num_runs, num_agents, num_timesteps)) # keep track of the percentage of times the optimal action was selected by each agent
-
-	for run in prange(num_runs):
-		# estimated reward
-		Q = np.zeros((num_changes, num_agents, num_arms))
-
-		# estimated means s/n
-		s = np.zeros((num_changes, num_agents, num_arms)) # estimated cumulative expected reward
-		n = np.zeros((num_changes, num_agents, num_arms)) # estimated number of times an arm has been selected by each agent
-		s_real = np.zeros((num_changes, num_agents, num_arms)) # cumulative reward - actual value
-		n_real = np.zeros((num_changes, num_agents, num_arms)) # number of times an arm has been selected by each agent - actual value
-
-		xsi = np.zeros((num_agents, num_arms)) # number of times that arm has been selected in that timestep
-		reward = np.zeros((num_agents, num_arms)) # reward vector in that timestep
-		total_individual_rewards = np.zeros((num_agents)) # throughout the run
-
-		bandit = bandit_true_means[run, 0, :] # initialize bandit
-		best_arm_mean_idx = np.argmax(bandit)
-		best_arm_mean = bandit[best_arm_mean_idx]
-
-		current_bandit_t = 0 # timestep local to the current bandit
-
-		for t in range(num_timesteps):
-			last_t = current_bandit_t - 1 if current_bandit_t > 0 else 0
-
-			if current_bandit_t < num_arms:
-				for k in range(num_agents):
-					reward[k] = np.zeros(num_arms)
-					xsi[k] = np.zeros(num_arms)
-					action = current_bandit_t
-
-					reward[k, action] = np.random.normal(bandit[action], min_variance / competencies[k])
-					total_individual_rewards[k] += reward[k, action]
-					regret[run, k, t] = best_arm_mean - bandit[action]
-					xsi[k, action] += 1
-					s_real[current_change_idx, k, action] += reward[k, action]
-					n_real[current_change_idx, k, action] += 1
-
-					if action == best_arm_mean_idx:
-						times_best_arm_selected[run, k] += 1
-			else:
-				for k in range(num_agents):
-					for i in range(num_arms):
-						true_estimate = s[current_change_idx, k, i] / n[current_change_idx, k, i]
-						c1 = (n[current_change_idx, k, i] + f(last_t)) / (num_agents * n[current_change_idx, k, i])
-						c2 = np.log(last_t) / n[current_change_idx, k, i]
-						confidence_bound = sigma_g * np.sqrt(c0 * c1 * c2)
-						Q[current_change_idx, k, i] = true_estimate + confidence_bound
-
-					reward[k] = np.zeros(num_arms)
-					xsi[k] = np.zeros(num_arms)
-
-					action = np.argmax(Q[current_change_idx, k, :])
-					reward[k, action] = np.random.normal(bandit[action], min_variance / competencies[k])
-					total_individual_rewards[k] += reward[k, action]
-					regret[run, k, t] = best_arm_mean - bandit[action]
-					xsi[k, action] += 1
-					s_real[current_change_idx, k, action] += reward[k, action]
-					n_real[current_change_idx, k, action] += 1
-
-					if action == best_arm_mean_idx:
-						times_best_arm_selected[run, k] += 1
-
-			percent_optimal_action[run, :, t] = times_best_arm_selected[run, :] / (t + 1)
-
-			# update estimates using running consensus
-			for i in range(num_arms):
-				n[current_change_idx, :, i] = P @ (n[current_change_idx, :, i] + xsi[:, i])
-				s[current_change_idx, :, i] = P @ (s[current_change_idx, :, i] + reward[:, i])
-
-			current_bandit_t += 1
-
-	return regret, percent_optimal_action
 
 
 @njit(parallel=True)
@@ -486,7 +381,10 @@ def coopucb2_og(bandit_true_means: np.ndarray, competencies: np.ndarray, num_tim
 					xsi[k] = np.zeros(num_arms)
 					action = current_bandit_t
 
-					reward[k, action] = np.random.normal(bandit[action] * competencies[k], min_variance / competencies[k])
+					reward[k, action] = np.random.normal(
+						bandit[action] * (competencies[k] + np.random.randn()),
+						min_variance / (competencies[k] * np.abs(np.random.randn()))
+					) if competencies[k] < 1 else np.random.normal(bandit[action], min_variance / competencies[k])
 					total_individual_rewards[k] += reward[k, action]
 					regret[run, k, t] = best_arm_mean - bandit[action]
 					xsi[k, action] += 1
@@ -506,7 +404,10 @@ def coopucb2_og(bandit_true_means: np.ndarray, competencies: np.ndarray, num_tim
 					xsi[k] = np.zeros(num_arms)
 
 					action = np.argmax(Q[current_change_idx, k, :])
-					reward[k, action] = np.random.normal(bandit[action] * competencies[k], min_variance / competencies[k])
+					reward[k, action] = np.random.normal(
+						bandit[action] * (competencies[k] + np.random.randn()),
+						min_variance / (competencies[k] * np.abs(np.random.randn()))
+					) if competencies[k] < 1 else np.random.normal(bandit[action], min_variance / competencies[k])
 					total_individual_rewards[k] += reward[k, action]
 					regret[run, k, t] = best_arm_mean - bandit[action]
 					xsi[k, action] += 1
