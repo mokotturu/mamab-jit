@@ -20,7 +20,7 @@ def main(args):
 	logging.info(f'started script')
 	network_name = args.network
 	adjacency_matrix = np.load(f'data/saved_networks/{network_name}_adj.npy')
-	network_name += '_c_randn'
+	network_name += '_seq_test'
 	# adjacency_matrix = nx.to_numpy_array(nx.star_graph(4))
 	alg_type = coopucb2_og if args.alg == 'coopucb2_og' else coopucb2_limited_communication
 	alg_type_str = args.alg
@@ -38,10 +38,10 @@ def main(args):
 	logging.info(f'incidence matrix:\n{incidence_matrix}')
 	logging.info(f'weight matrix:\n{weight_matrix}')
 
-	num_runs = 10000
+	num_runs = 1000
 	num_arms = 20
-	num_timesteps = 500
-	changes_at = np.arange(num_timesteps, step=1000)
+	num_timesteps = 1000
+	changes_at = np.arange(num_timesteps, step=100)
 	num_changes = changes_at.shape[0]
 	bandit_true_means = np.random.normal(0, 1, (num_runs, num_changes, num_arms))
 
@@ -100,6 +100,7 @@ def main(args):
 	plt.legend(loc='center left', bbox_to_anchor=(1, 0.5)) # legend on the right side
 	plt.savefig(f'data/img/png/{network_name.replace(" ", "_")}_{alg_type_str}.png', format='png')
 	plt.savefig(f'data/img/svg/{network_name.replace(" ", "_")}_{alg_type_str}.svg', format='svg')
+	plt.savefig(f'data/img/pdf/{network_name.replace(" ", "_")}_{alg_type_str}.pdf', format='pdf')
 	logging.info(f'ended script')
 	plt.show()
 
@@ -120,6 +121,7 @@ def run(bandit_true_means: np.ndarray, changes_at: np.ndarray, competencies: np.
 	logging.info(f'started {experiment_name} version')
 	regret, s_n_error, percent_optimal_action = alg_type(
 		bandit_true_means,
+		changes_at,
 		competencies,
 		num_timesteps,
 		weight_matrix,
@@ -316,7 +318,7 @@ def coopucb2_limited_communication(bandit_true_means: np.ndarray, competencies: 
 
 
 @njit(parallel=True)
-def coopucb2_og(bandit_true_means: np.ndarray, competencies: np.ndarray, num_timesteps: int, P: np.ndarray):
+def coopucb2_og(bandit_true_means: np.ndarray, changes_at: np.ndarray, competencies: np.ndarray, num_timesteps: int, P: np.ndarray):
 	'''
 	Plays coopucb2 given the number of runs, number of arms, timesteps, true
 	means of arms, and the P matrix of the network. Optimized to work with
@@ -324,6 +326,7 @@ def coopucb2_og(bandit_true_means: np.ndarray, competencies: np.ndarray, num_tim
 
 	## Parameters
 	bandit_true_means: (num_runs, num_changes, num_arms) array of true means of arms
+	changes_at: (num_changes) array of timesteps at which the bandit changes
 	competencies: (num_agents) array of agent competencies
 	num_timesteps: number of timesteps to run the algorithm
 	P: (num_agents, num_agents) weight matrix of network for information sharing
@@ -335,7 +338,7 @@ def coopucb2_og(bandit_true_means: np.ndarray, competencies: np.ndarray, num_tim
 
 	# constants, hyperparameters
 	num_runs, num_changes, num_arms = bandit_true_means.shape
-	current_change_idx = 0
+	current_change_idx = -1
 	num_agents, _ = P.shape
 
 	sigma_g = 1
@@ -366,14 +369,21 @@ def coopucb2_og(bandit_true_means: np.ndarray, competencies: np.ndarray, num_tim
 		reward = np.zeros((num_agents, num_arms)) # reward vector in that timestep
 		total_individual_rewards = np.zeros((num_agents)) # throughout the run
 
-		bandit = bandit_true_means[run, 0, :] # initialize bandit
-		best_arm_mean_idx = np.argmax(bandit)
-		best_arm_mean = bandit[best_arm_mean_idx]
+		# bandit = bandit_true_means[run, 0, :] # initialize bandit
+		# best_arm_mean_idx = np.argmax(bandit)
+		# best_arm_mean = bandit[best_arm_mean_idx]
 
 		current_bandit_t = 0 # timestep local to the current bandit
 
 		for t in range(num_timesteps):
 			last_t = current_bandit_t - 1 if current_bandit_t > 0 else 0
+
+			if current_change_idx + 1 < num_changes and t == changes_at[current_change_idx + 1]:
+				current_change_idx = current_change_idx + 1
+				bandit = bandit_true_means[run, current_change_idx, :]
+				best_arm_mean_idx = np.argmax(bandit)
+				best_arm_mean = bandit[best_arm_mean_idx]
+				current_bandit_t = 0
 
 			if current_bandit_t < num_arms:
 				for k in range(num_agents):
