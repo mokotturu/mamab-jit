@@ -196,7 +196,7 @@ def run(bandit_true_means: np.ndarray, changes_at: np.ndarray, competencies: np.
 
 
 @njit(parallel=True)
-def coopucb2_limited_communication(bandit_true_means: np.ndarray, competencies: np.ndarray, num_timesteps: int, P: np.ndarray, comm_every_t: int=50):
+def coopucb2_limited_communication(bandit_true_means: np.ndarray, changes_at: np.ndarray, competencies: np.ndarray, num_timesteps: int, P: np.ndarray, comm_every_t: int=50):
 	'''
 	Plays coopucb2 given the number of runs, number of arms, timesteps, true
 	means of arms, and the P matrix of the network. Optimized to work with
@@ -204,6 +204,7 @@ def coopucb2_limited_communication(bandit_true_means: np.ndarray, competencies: 
 
 	## Parameters
 	bandit_true_means: (num_runs, num_changes, num_arms) array of true means of arms
+	changes_at: (num_changes) array of timesteps at which the bandit changes
 	competencies: (num_agents) array of agent competencies
 	num_timesteps: number of timesteps to run the algorithm
 	P: (num_agents, num_agents) weight matrix of network for information sharing
@@ -216,7 +217,7 @@ def coopucb2_limited_communication(bandit_true_means: np.ndarray, competencies: 
 
 	# constants, hyperparameters
 	num_runs, num_changes, num_arms = bandit_true_means.shape
-	current_change_idx = 0
+	current_change_idx = -1
 	num_agents, _ = P.shape
 
 	sigma_g = 1
@@ -257,6 +258,13 @@ def coopucb2_limited_communication(bandit_true_means: np.ndarray, competencies: 
 
 		for t in range(num_timesteps):
 			last_t = current_bandit_t - 1 if current_bandit_t > 0 else 0
+
+			if current_change_idx + 1 < num_changes and t == changes_at[current_change_idx + 1]:
+				current_change_idx = current_change_idx + 1
+				bandit = bandit_true_means[run, current_change_idx, :]
+				best_arm_mean_idx = np.argmax(bandit)
+				best_arm_mean = bandit[best_arm_mean_idx]
+				current_bandit_t = 0
 
 			if current_bandit_t < num_arms:
 				for k in range(num_agents):
