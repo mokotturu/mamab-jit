@@ -44,14 +44,17 @@ def bandit_difficulties(bandits):
 		difficulties[idx] /= (NUM_ARMS)
 	return difficulties
 
-if __name__ == '__main__':
-	np.set_printoptions(suppress=True)
-
+def test_bandit_ratings():
 	bandits = np.array([
+		[0.1, 0.1 , 0.1 ],
+		[0.1, 0.11, 0.12],
+		[0.1, 0.1 , 0.5 ],
+		[1.1, 1.1 , 1.5 ],
 		[1.1, 1.2 , 1.5 ],
 		[1.1, 1.4 , 1.5 ],
 	])
 
+	print(bandits)
 	print(bandit_difficulties(bandits))
 
 	runs = 1_000_000
@@ -70,4 +73,31 @@ if __name__ == '__main__':
 	plt.xlabel('Timesteps')
 	plt.ylabel('Percent Optimal Action')
 	plt.legend()
+	plt.savefig(f'data/img/png/bandit_ratings.png')
 	plt.show()
+
+
+def generate_bandits():
+	NUM_BANDITS = 1_000_000
+	NUM_ARMS = 10
+	mean, std = 0, 1
+
+	bandits = np.random.normal(mean, std, (NUM_BANDITS, NUM_ARMS))
+	ratings = bandit_difficulties(bandits)
+
+
+	print('finished generating bandits')
+
+	# plot histogram of bandit ratings
+	plt.hist(ratings, bins=30)
+	plt.xlabel('Bandit Rating')
+	plt.ylabel('Frequency')
+	plt.title('Histogram of Bandit Ratings')
+	plt.savefig(f'data/img/png/10_bandit_ratings_histogram_{mean}_{std}.png')
+	plt.show()
+
+if __name__ == '__main__':
+	np.set_printoptions(suppress=True)
+
+	# test_bandit_ratings()
+	generate_bandits()
