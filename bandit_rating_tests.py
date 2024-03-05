@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as stats
 from numba import njit, prange
+from tqdm import tqdm
 
 
 @njit(parallel=True)
@@ -76,25 +77,30 @@ def test_bandit_ratings():
 	plt.savefig(f'data/img/png/bandit_ratings.png')
 	plt.show()
 
-
 def generate_bandits():
 	NUM_BANDITS = 1_000_000
-	NUM_ARMS = 10
-	mean, std = 0, 1
+	NUM_ARMS = 3
+	dists = [
+		(0, 0.01),
+		(0, 0.1),
+		(0, 1),
+		(0, 10),
+	]
 
-	bandits = np.random.normal(mean, std, (NUM_BANDITS, NUM_ARMS))
-	ratings = bandit_difficulties(bandits)
+	for mean, std in tqdm(dists):
+		bandits = np.random.normal(mean, std, (NUM_BANDITS, NUM_ARMS))
+		np.save(f'data/data/bandits_{mean}_{std}.npy', bandits)
+		print(f'Bandits with N({mean}, {std}) saved')
+		ratings = bandit_difficulties(bandits)
+		print(f'Bandits with N({mean}, {std}) difficulties calculated')
+		plt.hist(ratings, label=f'N({mean}, {std})', bins=30, alpha=0.5)
 
-
-	print('finished generating bandits')
-
-	# plot histogram of bandit ratings
-	plt.hist(ratings, bins=30)
 	plt.xlabel('Bandit Rating')
 	plt.ylabel('Frequency')
 	plt.title('Histogram of Bandit Ratings')
-	plt.savefig(f'data/img/png/10_bandit_ratings_histogram_{mean}_{std}.png')
-	plt.show()
+	plt.legend()
+	plt.savefig(f'data/img/png/bandit_ratings_histogram.png')
+	# plt.show()
 
 if __name__ == '__main__':
 	np.set_printoptions(suppress=True)
