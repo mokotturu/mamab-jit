@@ -4,9 +4,10 @@ from pathlib import Path
 from time import ctime, time
 
 import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
 import networkx as nx
 import numpy as np
+import scipy.stats as stats
+from matplotlib.lines import Line2D
 from networkx.drawing.nx_pydot import graphviz_layout
 from numba import njit, prange
 
@@ -16,12 +17,12 @@ from graph_optimization import (fastest_averaging_constant_weight,
                                 metropolis_hastings_weights)
 from old_lmsc import generateP
 
+
 def main(args):
 	logging.info(f'started script')
 	network_name = args.network
 	adjacency_matrix = np.load(f'data/saved_networks/{network_name}_adj.npy')
 	network_name += '_seq_test'
-	# adjacency_matrix = nx.to_numpy_array(nx.star_graph(4))
 	alg_type = coopucb2_og if args.alg == 'coopucb2_og' else coopucb2_limited_communication
 	alg_type_str = args.alg
 
@@ -31,39 +32,27 @@ def main(args):
 	adjacency_with_self = adjacency_matrix + np.eye(num_agents)
 	neighbor_count = np.sum(adjacency_with_self, axis=1)
 
-	# weight_matrix = adjacency_with_self / neighbor_count[:, None]
-	# weight_matrix, _ = generateP(adjacency_matrix, 0.6)
 	_, weight_matrix, _ = fmmc_weights(incidence_matrix)
 
 	logging.info(f'incidence matrix:\n{incidence_matrix}')
 	logging.info(f'weight matrix:\n{weight_matrix}')
 
-	num_runs = 1000
-	num_arms = 20
-	num_timesteps = 1000
-	changes_at = np.arange(num_timesteps, step=100)
+	num_runs = 100
+	num_arms = 10
+	num_switches = 25
+	num_steps_per_switch = 500
+	num_timesteps = num_switches * num_steps_per_switch
+	changes_at = np.arange(num_timesteps, step=num_steps_per_switch)
 	num_changes = changes_at.shape[0]
 	bandit_true_means = np.random.normal(0, 1, (num_runs, num_changes, num_arms))
 
-	# plt.figure(figsize=(8, 5))
-
-	# competencies_arrays = np.array([
-	# 	np.array([1.0, 1.0, 1.0, 1.0]),
-	# 	np.array([0.2, 1.0, 1.0, 1.0]),
-	# 	np.array([1.0, 0.2, 1.0, 1.0]),
-	# 	np.array([1.0, 1.0, 1.0, 0.2]),
-	# 	np.array([1.0, 1.0, 0.2, 0.2]),
-	# 	np.array([0.2, 0.2, 0.2, 0.2]),
-	# ])
 	competencies_arrays = np.array([
 		np.ones(num_agents),
 		np.array([0.2, 1.0, 1.0, 1.0]),
 		np.array([1.0, 0.2, 1.0, 1.0]),
-		np.array([1.0, 1.0, 0.2, 0.2]),
-		np.array([0.2, 0.2, 0.2, 0.2]),
+		np.array([1.0, 1.0, 0.2, 1.0]),
 	])
 
-	# linestyles = ['-' if i < 10 else ':' for i in range(num_agents)]
 	linestyles = ['-' for i in range(num_agents)]
 	linemarkers = list(Line2D.markers)[:-4] # remove last 4 entries as they're invalid markers
 
@@ -94,13 +83,12 @@ def main(args):
 			linemarkers=linemarkers,
 		)
 
-	plt.suptitle(f'{network_name.title()} graph, {num_runs} runs, {num_changes - 1} bandit changes, {num_arms} arms')
+	plt.suptitle(f'{network_name.title()} graph, {num_runs} runs, {num_changes} bandits, {num_arms} arms')
 	fig.supxlabel('Timestep')
-	# fig.supylabel('Regret')
 	plt.legend(loc='center left', bbox_to_anchor=(1, 0.5)) # legend on the right side
-	plt.savefig(f'data/img/png/{network_name.replace(" ", "_")}_{alg_type_str}.png', format='png')
-	plt.savefig(f'data/img/svg/{network_name.replace(" ", "_")}_{alg_type_str}.svg', format='svg')
-	plt.savefig(f'data/img/pdf/{network_name.replace(" ", "_")}_{alg_type_str}.pdf', format='pdf')
+	plt.savefig(f'data/img/png/{network_name.replace(" ", "_")}_{alg_type_str}.png', format='png', bbox_inches='tight')
+	plt.savefig(f'data/img/svg/{network_name.replace(" ", "_")}_{alg_type_str}.svg', format='svg', bbox_inches='tight')
+	plt.savefig(f'data/img/pdf/{network_name.replace(" ", "_")}_{alg_type_str}.pdf', format='pdf', bbox_inches='tight')
 	logging.info(f'ended script')
 	plt.show()
 
@@ -212,6 +200,7 @@ def coopucb2_limited_communication(bandit_true_means: np.ndarray, changes_at: np
 
 	# Returns
 	regret: (num_runs, num_agents, num_timesteps) array of regret for each agent at each timestep
+	s_n_error: (num_runs, num_agents, num_timesteps) array of the s/n error for each agent at each timestep
 	percent_optimal_action: (num_runs, num_agents, num_timesteps) array of the percentage of times the optimal action was selected by each agent at each timestep
 	'''
 
@@ -341,6 +330,7 @@ def coopucb2_og(bandit_true_means: np.ndarray, changes_at: np.ndarray, competenc
 
 	# Returns
 	regret: (num_runs, num_agents, num_timesteps) array of regret for each agent at each timestep
+	s_n_error: (num_runs, num_agents, num_timesteps) array of s/n error for each agent at each timestep
 	percent_optimal_action: (num_runs, num_agents, num_timesteps) array of the percentage of times the optimal action was selected by each agent at each timestep
 	'''
 
@@ -445,6 +435,26 @@ def coopucb2_og(bandit_true_means: np.ndarray, changes_at: np.ndarray, competenc
 			current_bandit_t += 1
 
 	return regret, s_n_error, percent_optimal_action
+
+def tvd(mu_1, sigma_1, mu_2, sigma_2):
+	'''
+	calculate total variation distance given the means and standard deviations
+	of two normal distributions
+	'''
+	x = np.linspace(min(mu_1 - 3 * sigma_1, mu_2 - 3 * sigma_2), max(mu_1 + 3 * sigma_1, mu_2 + 3 * sigma_2), 1000)
+	pdf_1 = stats.norm.pdf(x, mu_1, sigma_1)
+	pdf_2 = stats.norm.pdf(x, mu_2, sigma_2)
+	return 0.5 * np.trapz(np.abs(pdf_1 - pdf_2), x)
+
+def bandit_difficulties(bandits):
+	difficulties = np.zeros(len(bandits))
+	NUM_BANDITS, NUM_ARMS = bandits.shape
+	for idx, bandit in enumerate(bandits):
+		best_arm = np.max(bandit)
+		for arm in bandit:
+			difficulties[idx] += tvd(arm, 1, best_arm, 1)
+		difficulties[idx] /= (NUM_ARMS)
+	return difficulties
 
 if __name__ == '__main__':
 	logging.basicConfig(filename=f'output_{Path(__file__).stem}.log',filemode='w', format='%(asctime)s - %(message)s', level=logging.INFO)
