@@ -47,12 +47,8 @@ def bandit_difficulties(bandits):
 
 def test_bandit_ratings():
 	bandits = np.array([
-		[0.1, 0.1 , 0.1 ],
-		[0.1, 0.11, 0.12],
-		[0.1, 0.1 , 0.5 ],
-		[1.1, 1.1 , 1.5 ],
-		[1.1, 1.2 , 1.5 ],
-		[1.1, 1.4 , 1.5 ],
+		[1, 2, 5],
+		[1, 4, 5],
 	])
 
 	print(bandits)
@@ -62,19 +58,21 @@ def test_bandit_ratings():
 	timesteps = 1000
 
 	for bandit in bandits:
-		regret, percent_optimal = run_ucb(bandit, runs, timesteps)
-		regret = np.mean(np.cumsum(regret, axis=1), axis=0)
-		percent_optimal = np.mean(percent_optimal, axis=0)
-		np.save(f'data/data/ucb_{bandit}_regret.npy', regret)
-		np.save(f'data/data/ucb_{bandit}_percent.npy', percent_optimal)
-		# regret = np.load(f'data/data/ucb_{bandit}_regret.npy')
-		# percent_optimal = np.load(f'data/data/ucb_{bandit}_percent.npy')
+		# regret, percent_optimal = run_ucb(bandit, runs, timesteps)
+		# regret = np.mean(np.cumsum(regret, axis=1), axis=0)
+		# percent_optimal = np.mean(percent_optimal, axis=0)
+		# np.save(f'data/data/ucb_{bandit}_regret.npy', regret)
+		# np.save(f'data/data/ucb_{bandit}_percent.npy', percent_optimal)
+		regret = np.load(f'data/data/ucb_{bandit}_regret.npy')
+		percent_optimal = np.load(f'data/data/ucb_{bandit}_percent.npy')
 		plt.plot(percent_optimal, label=bandit)
 	plt.grid()
 	plt.xlabel('Timesteps')
 	plt.ylabel('Percent Optimal Action')
+	plt.title('% Optimal Action by UCB Agent')
 	plt.legend()
-	plt.savefig(f'data/img/png/bandit_ratings.png')
+	plt.savefig(f'data/img/png/bandit_rating_ucb.png')
+	plt.savefig(f'data/img/pdf/bandit_rating_ucb.pdf', format='pdf')
 	plt.show()
 
 def generate_bandits():
@@ -99,11 +97,11 @@ def generate_bandits():
 	plt.ylabel('Frequency')
 	plt.title('Histogram of Bandit Ratings')
 	plt.legend()
-	plt.savefig(f'data/img/png/bandit_ratings_histogram.png')
+	plt.savefig(f'data/img/png/bandit_ratings_histogram.pdf', format='pdf')
 	# plt.show()
 
 if __name__ == '__main__':
 	np.set_printoptions(suppress=True)
 
-	# test_bandit_ratings()
-	generate_bandits()
+	test_bandit_ratings()
+	# generate_bandits()

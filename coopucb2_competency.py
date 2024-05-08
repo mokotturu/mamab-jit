@@ -22,7 +22,7 @@ def main(args):
 	logging.info(f'started script')
 	network_name = args.network
 	adjacency_matrix = np.load(f'data/saved_networks/{network_name}_adj.npy')
-	network_name += '_seq_test'
+	network_name += '_mecc_paper'
 	alg_type = coopucb2_og if args.alg == 'coopucb2_og' else coopucb2_limited_communication
 	alg_type_str = args.alg
 
@@ -32,25 +32,30 @@ def main(args):
 	adjacency_with_self = adjacency_matrix + np.eye(num_agents)
 	neighbor_count = np.sum(adjacency_with_self, axis=1)
 
-	_, weight_matrix, _ = fmmc_weights(incidence_matrix)
+	_, _, weight_matrix, _ = fastest_averaging_constant_weight(incidence_matrix)
 
 	logging.info(f'incidence matrix:\n{incidence_matrix}')
 	logging.info(f'weight matrix:\n{weight_matrix}')
 
-	num_runs = 100
-	num_arms = 10
-	num_switches = 25
+	num_runs = 10000
+	num_arms = 20
+	num_switches = 1
 	num_steps_per_switch = 500
 	num_timesteps = num_switches * num_steps_per_switch
 	changes_at = np.arange(num_timesteps, step=num_steps_per_switch)
 	num_changes = changes_at.shape[0]
 	bandit_true_means = np.random.normal(0, 1, (num_runs, num_changes, num_arms))
 
+	temp_c_arr = np.ones(num_agents)
+	less_comp_agent = 1
+	temp_c_arr[less_comp_agent] = 0.2
+
 	competencies_arrays = np.array([
 		np.ones(num_agents),
-		np.array([0.2, 1.0, 1.0, 1.0]),
-		np.array([1.0, 0.2, 1.0, 1.0]),
-		np.array([1.0, 1.0, 0.2, 1.0]),
+		# np.array([0.2, 1.0, 1.0, 1.0]),
+		# np.array([1.0, 0.2, 1.0, 1.0]),
+		# np.array([1.0, 1.0, 0.2, 1.0]),
+		temp_c_arr
 	])
 
 	linestyles = ['-' for i in range(num_agents)]
@@ -58,14 +63,24 @@ def main(args):
 
 	num_experiments = competencies_arrays.shape[0]
 	num_experiment_cols = competencies_arrays.shape[0]
-	num_experiment_rows = 3
+	num_experiment_rows = 2
 
-	cmap = plt.get_cmap('tab10')
-	COLORS = cmap(np.arange(num_agents))
-	# COLORS = cmap(np.linspace(0, 1, num_agents))
+	cmap = plt.get_cmap('winter')
+	# COLORS = cmap(np.arange(num_agents))
+	COLORS_ARR = [nx.shortest_path_length(nx.from_numpy_array(adjacency_matrix), less_comp_agent, i) for i in range(num_agents)]
 
-	fig, axs = plt.subplots(num_experiment_rows, num_experiment_cols, figsize=(num_experiment_cols * 8, num_experiment_rows * 5), sharey='row')
+	# normalize COLORS_ARR to be between 0 and 1
+	COLORS_ARR = np.array(COLORS_ARR)
+	COLORS_ARR = (COLORS_ARR - np.min(COLORS_ARR)) / (np.max(COLORS_ARR) - np.min(COLORS_ARR))
+	COLORS = cmap(COLORS_ARR)
+
+	fig, axs = plt.subplots(num_experiment_rows, num_experiment_cols, figsize=(num_experiment_cols * 7, num_experiment_rows * 4), sharey='row')
 	# ax = ax.flatten()
+
+	titles = [
+		'Perfect Agents',
+		'One Less-Competent Agent'
+	]
 
 	for competencies_arr_idx, competencies_arr in enumerate(competencies_arrays):
 		run(
@@ -77,23 +92,24 @@ def main(args):
 			np.copy(weight_matrix),
 			experiment_name=np.array2string(competencies_arr),
 			alg_type=alg_type,
+			add_labels_const=competencies_arr_idx,
 			axs=axs[:, competencies_arr_idx],
 			colors=COLORS,
 			linestyles=linestyles,
 			linemarkers=linemarkers,
+			title=titles[competencies_arr_idx]
 		)
 
-	plt.suptitle(f'{network_name.title()} graph, {num_runs} runs, {num_changes} bandits, {num_arms} arms')
-	fig.supxlabel('Timestep')
-	plt.legend(loc='center left', bbox_to_anchor=(1, 0.5)) # legend on the right side
+	# plt.suptitle(f'{network_name.title()} graph, {num_runs} runs, {num_changes} bandits, {num_arms} arms')
+	fig.supxlabel('Timesteps')
+	# fig.legend(loc='upper center', bbox_to_anchor=(0.5, 1.01), ncols=num_agents+1) # legend on the right side
 	plt.savefig(f'data/img/png/{network_name.replace(" ", "_")}_{alg_type_str}.png', format='png', bbox_inches='tight')
 	plt.savefig(f'data/img/svg/{network_name.replace(" ", "_")}_{alg_type_str}.svg', format='svg', bbox_inches='tight')
 	plt.savefig(f'data/img/pdf/{network_name.replace(" ", "_")}_{alg_type_str}.pdf', format='pdf', bbox_inches='tight')
 	logging.info(f'ended script')
-	plt.show()
 
 
-def run(bandit_true_means: np.ndarray, changes_at: np.ndarray, competencies: np.ndarray, num_timesteps: int, adjacency_with_self: np.ndarray, weight_matrix: np.ndarray, experiment_name: str, alg_type, axs=None, colors=None, linestyles=None, linemarkers=None):
+def run(bandit_true_means: np.ndarray, changes_at: np.ndarray, competencies: np.ndarray, num_timesteps: int, adjacency_with_self: np.ndarray, weight_matrix: np.ndarray, experiment_name: str, alg_type, add_labels_const, axs=None, colors=None, linestyles=None, linemarkers=None, title=None):
 	if axs is None:
 		raise ValueError('ax must be provided')
 
@@ -101,51 +117,64 @@ def run(bandit_true_means: np.ndarray, changes_at: np.ndarray, competencies: np.
 	for _ax in axs:
 		_ax.set_prop_cycle(None)
 
-	ax_top, ax_middle, ax_bottom = axs
+	ax_top, ax_bottom = axs
 
 	if alg_type == None:
 		raise ValueError('alg_type must be provided')
 
 	logging.info(f'started {experiment_name} version')
-	regret, s_n_error, percent_optimal_action = alg_type(
-		bandit_true_means,
-		changes_at,
-		competencies,
-		num_timesteps,
-		weight_matrix,
-	)
+	# regret, s_n_error, percent_optimal_action = alg_type(
+	# 	bandit_true_means,
+	# 	changes_at,
+	# 	competencies,
+	# 	num_timesteps,
+	# 	weight_matrix,
+	# )
 
-	regret = np.cumsum(regret, axis=2) # cumulative regret over time
-	regret = np.mean(regret, axis=0) # average over runs
-	s_n_error = np.mean(s_n_error, axis=0) # average over runs
-	percent_optimal_action = np.mean(percent_optimal_action, axis=0) # average over runs
+	# regret = np.cumsum(regret, axis=2) # cumulative regret over time
+	# regret = np.mean(regret, axis=0) # average over runs
+	# s_n_error = np.mean(s_n_error, axis=0) # average over runs
+	# percent_optimal_action = np.mean(percent_optimal_action, axis=0) # average over runs
 
-	# np.save('data/data/changing_P_regret.npy', regret)
-	# regret = np.load('data/data/changing_P_regret.npy')
+	# np.save(f'data/data/competency_regret_{competencies}_mecc.npy', regret)
+	# np.save(f'data/data/competency_snerr_{competencies}_mecc.npy', s_n_error)
+	# np.save(f'data/data/competency_poa_{competencies}_mecc.npy', percent_optimal_action)
+
+	regret = np.load(f'data/data/competency_regret_{competencies}_mecc.npy')
+	s_n_error = np.load(f'data/data/competency_snerr_{competencies}_mecc.npy')
+	percent_optimal_action = np.load(f'data/data/competency_poa_{competencies}_mecc.npy')
 
 	# plot regret
 	for agent_idx, agent_regret in enumerate(regret):
-		ax_top.plot(agent_regret, label=f'agent {agent_idx + 1}', linestyle=linestyles[agent_idx], alpha=(0.5 + (agent_idx % 2) / 2), marker=f'${agent_idx + 1}$', markevery=num_timesteps // 6, color=colors[agent_idx])
+		if add_labels_const == 0:
+			ax_top.plot(agent_regret, label=f'agent {agent_idx + 1}', linestyle=linestyles[agent_idx], alpha=1, marker=f'${agent_idx + 1}$', markevery=num_timesteps // 6, color=colors[agent_idx])
+		else:
+			ax_top.plot(agent_regret, linestyle=linestyles[agent_idx], alpha=1, marker=f'${agent_idx + 1}$', markevery=num_timesteps // 6, color=colors[agent_idx])
 		logging.info(f'agent {agent_idx + 1} final regret: {agent_regret[-1]}')
 
-	regret = np.mean(regret, axis=0) # average over agents
-	ax_top.plot(regret, label=f'team average', color='black', linestyle='--')
 
-	ax_top.title.set_text(experiment_name)
+	regret = np.mean(regret, axis=0) # average over agents
+	if add_labels_const == 0:
+		ax_top.plot(regret, label=f'Team average', color='black', linestyle='--')
+	else:
+		ax_top.plot(regret, color='black', linestyle='--')
+
+	ax_top.title.set_text(title)
 	ax_top.grid()
-	ax_top.set_xlabel('Timestep')
-	ax_top.set_ylabel('Regret')
+	# ax_top.set_xlabel('Timestep')
+	if title == 'Perfect Agents':
+		ax_top.set_ylabel('Regret')
 
 	# plot s/n error
 	width = 2
 	inset = [0.425, 0.4, 0.55, 0.55]
-	axins = ax_middle.inset_axes(inset)
-	axins.spines['bottom'].set_linewidth(width)
-	axins.spines['top'].set_linewidth(width)
-	axins.spines['right'].set_linewidth(width)
-	axins.spines['left'].set_linewidth(width)
-	axins.tick_params(width=width)
-	axins.grid(which='both', axis='both')
+	# axins = ax_middle.inset_axes(inset)
+	# axins.spines['bottom'].set_linewidth(width)
+	# axins.spines['top'].set_linewidth(width)
+	# axins.spines['right'].set_linewidth(width)
+	# axins.spines['left'].set_linewidth(width)
+	# axins.tick_params(width=width)
+	# axins.grid(which='both', axis='both')
 
 	individual_agent_max_errors = np.zeros(s_n_error.shape[0])
 
@@ -155,30 +184,31 @@ def run(bandit_true_means: np.ndarray, changes_at: np.ndarray, competencies: np.
 	for agent_idx, agent_s_n_error in enumerate(s_n_error):
 		decreasing_errors = agent_s_n_error[np.argmax(agent_s_n_error):]
 		five_percent_line = np.argmax(agent_s_n_error) + np.argmax(decreasing_errors < 0.05 * np.max(individual_agent_max_errors))
-		ax_middle.plot(agent_s_n_error, label=f'agent {agent_idx + 1}', linestyle=linestyles[agent_idx], alpha=(0.5 + (agent_idx % 2) / 2), marker=f'${agent_idx + 1}$', markevery=num_timesteps // 6, color=colors[agent_idx])
-		axins.plot(agent_s_n_error, label=f'agent {agent_idx + 1}', linestyle=linestyles[agent_idx], alpha=(0.5 + (agent_idx % 2) / 2), marker=f'${agent_idx + 1}$', markevery=num_timesteps // 6, color=colors[agent_idx])
+		# ax_middle.plot(agent_s_n_error, label=f'agent {agent_idx + 1}', linestyle=linestyles[agent_idx], alpha=1, marker=f'${agent_idx + 1}$', markevery=num_timesteps // 6, color=colors[agent_idx])
+		# axins.plot(agent_s_n_error, label=f'agent {agent_idx + 1}', linestyle=linestyles[agent_idx], alpha=1, marker=f'${agent_idx + 1}$', markevery=num_timesteps // 6, color=colors[agent_idx])
 		# ax_middle.axvline(five_percent_line, linestyle=linestyles[agent_idx], color=colors[agent_idx])
 		# axins.axvline(five_percent_line, linestyle=linestyles[agent_idx], color=colors[agent_idx])
 
 	s_n_error = np.mean(s_n_error, axis=0) # average over agents
-	ax_middle.plot(s_n_error, label=f'team average', color='black', linestyle='--')
-	axins.plot(s_n_error, label=f'team average', color='black', linestyle='--')
+	# ax_middle.plot(s_n_error, label=f'team average', color='black', linestyle='--')
+	# axins.plot(s_n_error, label=f'team average', color='black', linestyle='--')
 
-	ax_middle.title.set_text(experiment_name)
-	ax_middle.grid()
-	ax_middle.set_xlabel('Timestep')
-	ax_middle.set_ylabel('s/n error')
+	# ax_middle.title.set_text(experiment_name)
+	# ax_middle.grid()
+	# ax_middle.set_xlabel('Timestep')
+	# ax_middle.set_ylabel('s/n error')
 
 	# plot percent optimal action
 	for agent_idx, agent_percent_optimal_action in enumerate(percent_optimal_action):
-		ax_bottom.plot(agent_percent_optimal_action, label=f'agent {agent_idx + 1}', linestyle=linestyles[agent_idx], alpha=(0.5 + (agent_idx % 2) / 2), marker=f'${agent_idx + 1}$', markevery=num_timesteps // 6, color=colors[agent_idx])
+		ax_bottom.plot(agent_percent_optimal_action, linestyle=linestyles[agent_idx], alpha=1, marker=f'${agent_idx + 1}$', markevery=num_timesteps // 6, color=colors[agent_idx])
 
 	percent_optimal_action = np.mean(percent_optimal_action, axis=0) # average over agents
-	ax_bottom.plot(percent_optimal_action, label=f'team average', color='black', linestyle='--')
-	ax_bottom.title.set_text(experiment_name)
+	ax_bottom.plot(percent_optimal_action, color='black', linestyle='--')
+	# ax_bottom.title.set_text(title)
 	ax_bottom.grid()
-	ax_bottom.set_xlabel('Timestep')
-	ax_bottom.set_ylabel('Percent optimal action')
+	# ax_bottom.set_xlabel('Timestep')
+	if title == 'Perfect Agents':
+		ax_bottom.set_ylabel('Percent optimal action')
 
 	logging.info(f'ended {experiment_name} version')
 
@@ -464,5 +494,13 @@ if __name__ == '__main__':
 	parser.add_argument('--network', type=str, default='tadpole')
 	parser.add_argument('--alg', type=str, default='coopucb2_og')
 	args = parser.parse_args()
+
+	plt.rc('font', size=20)          # controls default text sizes
+	plt.rc('axes', titlesize=20)     # fontsize of the axes title
+	plt.rc('axes', labelsize=20)    # fontsize of the x and y labels
+	plt.rc('xtick', labelsize=20)    # fontsize of the tick labels
+	plt.rc('ytick', labelsize=20)    # fontsize of the tick labels
+	plt.rc('legend', fontsize=20)    # legend fontsize
+	plt.rc('figure', titlesize=20)  # fontsize of the figure title
 
 	main(args)
