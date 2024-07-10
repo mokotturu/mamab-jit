@@ -1,13 +1,13 @@
 import argparse
 import numpy as np
 import networkx as nx
-from coopucb2 import coopucb2
+from old_code.coopucb2 import coopucb2
 import matplotlib.pyplot as plt
 from graph_optimization import (fastest_averaging_constant_weight,
                                 fdla_weights_symmetric, fmmc_weights,
                                 lmsc_weights, max_degree_weights,
                                 metropolis_hastings_weights)
-from fdpg import signal_smoothness, nodal_distance, fdpg
+from old_code.fdpg import signal_smoothness, nodal_distance, fdpg
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()

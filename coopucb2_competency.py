@@ -220,13 +220,15 @@ def coopucb2_limited_communication(bandit_true_means: np.ndarray, changes_at: np
 	means of arms, and the P matrix of the network. Optimized to work with
 	numba.
 
+	Agents in the team communicate with each other every `comm_every_t` timesteps.
+
 	## Parameters
 	bandit_true_means: (num_runs, num_changes, num_arms) array of true means of arms
 	changes_at: (num_changes) array of timesteps at which the bandit changes
 	competencies: (num_agents) array of agent competencies
 	num_timesteps: number of timesteps to run the algorithm
 	P: (num_agents, num_agents) weight matrix of network for information sharing
-	comms_every: number of timesteps between communications
+	comm_every_t: number of timesteps between communications
 
 	# Returns
 	regret: (num_runs, num_agents, num_timesteps) array of regret for each agent at each timestep
