@@ -40,10 +40,13 @@ def bandit_difficulties(bandits):
 	NUM_BANDITS, NUM_ARMS = bandits.shape
 	for idx, bandit in enumerate(bandits):
 		best_arm = np.max(bandit)
+		second_best_arm = np.sort(bandit)[-2]
+		# difficulties[idx] = tvd(best_arm, 1, second_best_arm, 1)
 		for arm in bandit:
-			difficulties[idx] += tvd(arm, 1, best_arm, 1)
-		difficulties[idx] /= (NUM_ARMS)
-	return difficulties
+			if arm != best_arm:
+				difficulties[idx] += tvd(arm, 1, best_arm, 1)
+		difficulties[idx] /= (NUM_ARMS - 1)
+	return 1 - difficulties
 
 def test_bandit_ratings():
 	bandits = np.array([
@@ -54,54 +57,54 @@ def test_bandit_ratings():
 	print(bandits)
 	print(bandit_difficulties(bandits))
 
-	runs = 1_000_000
+	runs = 100_000
 	timesteps = 1000
 
 	for bandit in bandits:
-		# regret, percent_optimal = run_ucb(bandit, runs, timesteps)
-		# regret = np.mean(np.cumsum(regret, axis=1), axis=0)
-		# percent_optimal = np.mean(percent_optimal, axis=0)
+		regret, percent_optimal = run_ucb(bandit, runs, timesteps)
+		regret = np.mean(np.cumsum(regret, axis=1), axis=0)
+		percent_optimal = np.mean(percent_optimal, axis=0)
 		# np.save(f'data/data/ucb_{bandit}_regret.npy', regret)
 		# np.save(f'data/data/ucb_{bandit}_percent.npy', percent_optimal)
-		regret = np.load(f'data/data/ucb_{bandit}_regret.npy')
-		percent_optimal = np.load(f'data/data/ucb_{bandit}_percent.npy')
+		# regret = np.load(f'data/data/ucb_{bandit}_regret.npy')
+		# percent_optimal = np.load(f'data/data/ucb_{bandit}_percent.npy')
 		plt.plot(percent_optimal, label=bandit)
 	plt.grid()
 	plt.xlabel('Timesteps')
 	plt.ylabel('Percent Optimal Action')
 	plt.title('% Optimal Action by UCB Agent')
 	plt.legend()
-	plt.savefig(f'data/img/png/bandit_rating_ucb.png')
-	plt.savefig(f'data/img/pdf/bandit_rating_ucb.pdf', format='pdf')
+	plt.savefig(f'data/img/png/_bandit_rating_ucb.png')
+	plt.savefig(f'data/img/pdf/_bandit_rating_ucb.pdf', format='pdf')
 	plt.show()
 
 def generate_bandits():
-	NUM_BANDITS = 1_000_000
-	NUM_ARMS = 3
+	NUM_BANDITS = 10_000
+	NUM_ARMS = 10
 	dists = [
-		(0, 0.01),
-		(0, 0.1),
+		(0, 0.5),
 		(0, 1),
-		(0, 10),
+		(0, 2),
 	]
 
 	for mean, std in tqdm(dists):
-		bandits = np.random.normal(mean, std, (NUM_BANDITS, NUM_ARMS))
-		np.save(f'data/data/bandits_{mean}_{std}.npy', bandits)
-		print(f'Bandits with N({mean}, {std}) saved')
-		ratings = bandit_difficulties(bandits)
-		print(f'Bandits with N({mean}, {std}) difficulties calculated')
-		plt.hist(ratings, label=f'N({mean}, {std})', bins=30, alpha=0.5)
+		# bandits = np.random.normal(mean, std, (NUM_BANDITS, NUM_ARMS))
+		# np.save(f'data/data/bandits_{mean}_{std}.npy', bandits)
+		bandits = np.load(f'data/data/bandits_{mean}_{std}.npy')
+		# ratings = bandit_difficulties(bandits)
+		# np.save(f'data/data/bandit_ratings_{mean}_{std}.npy', ratings)
+		ratings = np.load(f'data/data/bandit_ratings_{mean}_{std}.npy')
+		plt.hist(ratings, label=r'$\mathcal{N}$(' + str(mean) + ', ' + str(std) + ')', bins=30, alpha=0.5)
 
-	plt.xlabel('Bandit Rating')
+	plt.xlabel('Bandit Difficulty')
 	plt.ylabel('Frequency')
-	plt.title('Histogram of Bandit Ratings')
+	# plt.title('Histogram of Bandit Ratings')
 	plt.legend()
-	plt.savefig(f'data/img/png/bandit_ratings_histogram.pdf', format='pdf')
+	plt.savefig(f'data/img/pdf/bandit_ratings_histogram.pdf', format='pdf', bbox_inches='tight')
 	# plt.show()
 
 if __name__ == '__main__':
 	np.set_printoptions(suppress=True)
 
-	test_bandit_ratings()
-	# generate_bandits()
+	# test_bandit_ratings()
+	generate_bandits()
