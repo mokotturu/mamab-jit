@@ -5,6 +5,7 @@ import networkx as nx
 import numpy as np
 from matplotlib.patches import ConnectionPatch
 from numba import njit, prange
+from scipy.optimize import curve_fit
 from scipy.sparse.csgraph import laplacian
 
 from graph_optimization import (fastest_averaging_constant_weight,
@@ -17,55 +18,83 @@ def main():
 	logging.info(f'started old_lmsc.py')
 	N = 10
 	runs = 10000
-	T = 1000
+	T = 500
 
 	# adjacency matrices
 	As = [
 		np.load('data/saved_networks/all_to_all_adj.npy'),
-		# np.load('data/saved_networks/house_adj.npy'),
-		# np.load('data/saved_networks/star_adj.npy'),
-		# np.load('data/saved_networks/eight_agents_adj.npy'),
+		np.load('data/saved_networks/star_adj.npy'),
+		np.load('data/saved_networks/house_adj.npy'),
+		np.load('data/saved_networks/ring_adj.npy'),
+		np.load('data/saved_networks/line_adj.npy'),
+		np.load('data/saved_networks/eight_agents_adj.npy'),
 		# np.load('data/saved_networks/2_clusters_adj.npy'),
 		# np.load('data/saved_networks/3_clusters_adj.npy'),
 		# np.load('data/saved_networks/4_clusters_adj.npy'),
-		# np.load('data/saved_networks/bridge_2_clusters_adj.npy'),
+		# np.load('data/saved_networks/5_clusters_adj.npy'),
+		# np.load('data/saved_networks/large_50_adj.npy'),
+		# np.array([
+		# 	[0.0, 1.0, 1.0],
+		# 	[1.0, 0.0, 1.0],
+		# 	[1.0, 1.0, 0.0],
+		# ])
+		# np.load('data/saved_networks/tadpole_adj.npy')
 	]
 
 	# corresponding incidence matrices
 	Is = [
 		np.load('data/saved_networks/all_to_all_inc.npy'),
-		# np.load('data/saved_networks/house_inc.npy'),
-		# np.load('data/saved_networks/star_inc.npy'),
-		# np.load('data/saved_networks/eight_agents_inc.npy'),
+		np.load('data/saved_networks/star_inc.npy'),
+		np.load('data/saved_networks/house_inc.npy'),
+		np.load('data/saved_networks/ring_inc.npy'),
+		np.load('data/saved_networks/line_inc.npy'),
+		np.load('data/saved_networks/eight_agents_inc.npy'),
 		# np.load('data/saved_networks/2_clusters_inc.npy'),
 		# np.load('data/saved_networks/3_clusters_inc.npy'),
 		# np.load('data/saved_networks/4_clusters_inc.npy'),
-		# np.load('data/saved_networks/bridge_2_clusters_inc.npy'),
+		# np.load('data/saved_networks/5_clusters_inc.npy'),
+		# np.load('data/saved_networks/large_50_inc.npy'),
+		# np.array([
+		# 	[1.0, -1.0, 0.0],
+		# 	[0.0, 1.0, -1.0],
+		# 	[-1.0, 0.0, 1.0],
+		# ])
+		# np.load('data/saved_networks/tadpole_inc.npy')
 	]
 
 	networks = [
-		'all-to-all',
-		# 'house',
-		# 'star',
-		# '8 agents',
+		'All-to-all',
+		'Star',
+		'House',
+		'Ring',
+		'Path',
+		'8-agents',
 		# '2 clusters',
 		# '3 clusters',
 		# '4 clusters',
-		# 'bridge 2 clusters',
+		# '5 clusters',
+		# 'Large 50'
+		# 'Triangle'
+		# 'Tadpole'
 	]
 
 	competencies = [
 		np.array([0.8 if i in [0] else 1.0 for i in range(5)]),
-		# np.array([0.8 if i in [2, 12, 22, 32] else 1.0 for i in range(41)]),
-		# np.array([0.8 if i in [0] else 1.0 for i in range(5)]),
-		# np.array([0.8 if i in [2, 12, 22, 32] else 1.0 for i in range(41)]),
-		# np.array([0.8 if i in [2, 12, 22, 32] else 1.0 for i in range(41)]),
-		# np.array([0.8 if i in [2, 12, 22] else 1.0 for i in range(31)]),
-		# np.array([0.5 if i in [40] else 1.0 for i in range(41)]),
-		# np.array([0.5 if i in [0] else 1.0 for i in range(40)]),
+		np.array([0.8 if i in [2, 12, 22, 32] else 1.0 for i in range(41)]),
+		np.array([0.8 if i in [0] else 1.0 for i in range(5)]),
+		np.array([0.8 if i in [2, 12, 22, 32] else 1.0 for i in range(41)]),
+		np.array([0.8 if i in [2, 12, 22, 32] else 1.0 for i in range(41)]),
+		np.array([0.8 if i in [2, 12, 22] else 1.0 for i in range(31)]),
+		np.array([0.5 if i in [40] else 1.0 for i in range(41)]),
+		np.array([0.5 if i in [0] else 1.0 for i in range(40)]),
+		np.array([0.5, 1.0, 1.0]),
+		np.array([0.5, 1.0, 1.0, 1.0])
 	]
 
-	trueMeans = np.array([np.random.normal(0, 1, N) for _ in range(runs)])
+	bandit_variance = 1
+	real_bandit_stage = 2
+
+	trueMeans = np.array([np.random.normal(0, bandit_variance, N) for _ in range(runs)])
 
 	# sizing
 	SMALL_SIZE = 10
@@ -107,6 +136,8 @@ def main():
 
 	for mat_idx, A in enumerate(As):
 		Ps, rhos, labels, normal_labels = [], [], [], []
+		# print the network name
+		logging.info(f'Network: {networks[mat_idx]}')
 
 		# uncomment to save an image of the networks
 		# G = nx.from_numpy_array(A)
@@ -120,20 +151,21 @@ def main():
 			P, rho = generateP(A, kappa=k)
 			Ps.append(P)
 			rhos.append(rho)
-			logging.info(f'{"kappa " + str(k):<20s}: {rho} {(1 / np.log(1 / rho))}')
+			logging.info(f'{"kappa " + str(k):<20s}: {rho:.3f} {(1 / np.log(1 / rho)):.3f}')
 			labels.append(fr'$\kappa$ = {k}')
 			normal_labels.append(fr'$\kappa$ = {k}')
-			# logging.info(f'\n{P}')
+			logging.info(f'\n{P}')
 
 		# constant edge
 		alpha, _, P, rho = fastest_averaging_constant_weight(Is[mat_idx])
 		rho = get_rho(P)
 		Ps.append(P)
+		best_constant_mat = np.array(np.round(P, decimals=3), dtype=np.float64)
 		rhos.append(rho)
 		logging.info(f'{"Constant-edge":<20s}: {rho:.3f} {(1 / np.log(1 / rho)):.3f}')
 		labels.append(fr'Constant-edge ($\alpha$ = {alpha:.3f})')
 		normal_labels.append(fr'Constant-edge')
-		# logging.info(f'\n{P}')
+		logging.info(f'\n{P}')
 
 		# maximum degree
 		alpha, _, P, rho = max_degree_weights(Is[mat_idx])
@@ -143,43 +175,73 @@ def main():
 		logging.info(f'{"Max-degree":<20s}: {rho:.3f} {(1 / np.log(1 / rho)):.3f}')
 		labels.append(fr'Maximum-degree ($\alpha$ = {alpha:.3f})')
 		normal_labels.append(fr'Maximum-degree')
-		# logging.info(f'\n{P}')
+		logging.info(f'\n{P}')
 
 		# local degree (MH)
 		_, P, rho = metropolis_hastings_weights(Is[mat_idx])
 		rho = get_rho(P)
 		Ps.append(P)
 		rhos.append(rho)
-		logging.info(f'{"Local-degree":<20s}: {rho} {(1 / np.log(1 / rho))}')
+		logging.info(f'{"Local-degree":<20s}: {rho:.3f} {(1 / np.log(1 / rho)):.3f}')
 		labels.append(fr'Local-degree')
 		normal_labels.append(fr'Local-degree')
-		# logging.info(f'\n{P}')
+		logging.info(f'\n{P}')
 
 		# fmmc
 		_, P, rho = fmmc_weights(Is[mat_idx])
 		rho = get_rho(P)
 		Ps.append(P)
+		fmmc_weights_mat = np.array(np.round(P, decimals=3), dtype=np.float64)
 		rhos.append(rho)
-		logging.info(f'{"FMMC":<20s}: {rho} {(1 / np.log(1 / rho))}')
+		logging.info(f'{"FMMC":<20s}: {rho:.3f} {(1 / np.log(1 / rho)):.3f}')
 		labels.append('FMMC')
 		normal_labels.append('FMMC')
-		# logging.info(f'\n{P}')
+		logging.info(f'\n{P}')
 
 		# fdla
 		_, P, rho = fdla_weights_symmetric(Is[mat_idx])
 		rho = get_rho(P)
 		Ps.append(P)
+		fdla_weights_mat = np.array(np.round(P, decimals=3), dtype=np.float64)
 		rhos.append(rho)
-		logging.info(f'{"FDLA":<20s}: {rho} {(1 / np.log(1 / rho))}')
+		logging.info(f'{"FDLA":<20s}: {rho:.3f} {(1 / np.log(1 / rho)):.3f}')
 		labels.append('FDLA')
 		normal_labels.append('FDLA')
+		logging.info(f'\n{P}')
+
+		# # my weights
+		# P = np.array([
+		# 	[0.28108112, 0.71891888, 0.        , 0.        ],
+		# 	[0.00985469, 0.50163124, 0.18622186, 0.30229222],
+		# 	[0.        , 0.33272083, 0.33424009, 0.33303908],
+		# 	[0.        , 0.28212891, 0.19196279, 0.52590829],
+		# ])
+		# rho = get_rho(P)
+		# Ps.append(P)
+		# rhos.append(rho)
+		# logging.info(f'{"OPT":<20s}: {rho} {(1 / np.log(1 / rho))}')
+		# labels.append('OPT')
+		# normal_labels.append('OPT')
 		# logging.info(f'\n{P}')
+
+		# lmsc
+		# _, P = lmsc_weights(Is[mat_idx])
+		P = np.eye(A.shape[0]) - (2 / (A.shape[0] + 1)) * laplacian(A, normed=False)
+		lmsc_weight_mat = np.array(np.round(P, decimals=3), dtype=np.float64)
+		rho = get_rho(P)
+		Ps.append(P)
+		rhos.append(rho)
+		logging.info(f'{"LMSC":<20s}: {rho} {(1 / np.log(1 / rho))}')
+		labels.append('LMSC')
+		normal_labels.append('LMSC')
+		logging.info(f'\n{P}')
 
 		# in_xl, in_xr, in_yb, in_yu = axins_limits[mat_idx]
 		fig, ax = plt.subplots()
 
 		means = np.zeros((len(Ps), T))
 		means_maxs = np.zeros(len(Ps))
+		asymptotes = np.zeros(len(Ps))
 		team_percent_optimal_actions = np.zeros((len(Ps), T))
 
 		logging.info(f'Network: {networks[mat_idx]}')
@@ -191,16 +253,21 @@ def main():
 			percent_optimal_action = np.mean(percent_optimal_action, axis=0) # mean over runs
 			team_percent_optimal_actions[P_idx] = np.mean(percent_optimal_action, axis=0) # mean over agents
 
-			np.save(f'data/data/{networks[mat_idx].replace(" ", "-")}_reg_{labels[P_idx]}_competency.npy', reg)
-			np.save(f'data/data/{networks[mat_idx].replace(" ", "-")}_snerr_{labels[P_idx]}_competency.npy', snerr)
-			np.save(f'data/data/{networks[mat_idx].replace(" ", "-")}_percent_optimal_action_{labels[P_idx]}_competency.npy', team_percent_optimal_actions[P_idx])
-			# reg = np.load(f'data/data/{networks[mat_idx].replace(" ", "-")}_reg_{labels[P_idx]}_competency.npy')
-			# snerr = np.load(f'data/data/{networks[mat_idx].replace(" ", "-")}_snerr_{labels[P_idx]}_competency.npy')
-			# team_percent_optimal_actions[P_idx] = np.load(f'data/data/{networks[mat_idx].replace(" ", "-")}_percent_optimal_action_{labels[P_idx]}_competency.npy')
+			np.save(f'data/data/LMSC_TEST_{networks[mat_idx].replace(" ", "-")}_reg_{labels[P_idx]}_stage_{real_bandit_stage}.npy', reg)
+			np.save(f'data/data/LMSC_TEST_{networks[mat_idx].replace(" ", "-")}_snerr_{labels[P_idx]}_stage_{real_bandit_stage}.npy', snerr)
+			np.save(f'data/data/LMSC_TEST_{networks[mat_idx].replace(" ", "-")}_percent_optimal_action_{labels[P_idx]}_stage_{real_bandit_stage}.npy', team_percent_optimal_actions[P_idx])
+
+			# reg = np.load(f'data/data/{networks[mat_idx].replace(" ", "-")}_reg_{labels[P_idx]}.npy')
+			# snerr = np.load(f'data/data/{networks[mat_idx].replace(" ", "-")}_snerr_{labels[P_idx]}.npy')
+			# team_percent_optimal_actions[P_idx] = np.load(f'data/data/{networks[mat_idx].replace(" ", "-")}_percent_optimal_action_{labels[P_idx]}.npy')
 
 
 			means[P_idx] = np.mean(snerr, axis=0)	# mean over agents
 			means_maxs[P_idx] = np.max(means[P_idx])
+			_data = means[P_idx, N:]
+			popt, pcov = curve_fit(exp_decay, np.arange(len(_data)), _data, p0=(1, 1e-2, 1), maxfev=10000)
+			asymptotes[P_idx] = popt[2]
+
 
 			# plot regret
 			fig.suptitle(f'{networks[mat_idx].title()} network, {runs} runs, {T} timesteps, {N} arms, {A.shape[0]} agents')
@@ -210,8 +277,8 @@ def main():
 
 		ax.grid(True)
 		ax.legend()
-		plt.savefig(f'data/img/svg/{networks[mat_idx].replace(" ", "-")}_regret_competency.svg', format='svg', bbox_inches='tight')
-		plt.savefig(f'data/img/png/{networks[mat_idx].replace(" ", "-")}_regret_competency.png', format='png', bbox_inches='tight')
+		plt.savefig(f'data/img/svg/LMSC_TEST_{networks[mat_idx].replace(" ", "-")}_regret_stage_{real_bandit_stage}.svg', format='svg', bbox_inches='tight')
+		plt.savefig(f'data/img/png/LMSC_TEST_{networks[mat_idx].replace(" ", "-")}_regret_stage_{real_bandit_stage}.png', format='png', bbox_inches='tight')
 		fig, ax = plt.subplots()
 
 		# fig.suptitle(f'{networks[mat_idx].title()} network, {runs} runs, {T} timesteps, {N} arms, {A.shape[0]} agents')
@@ -220,48 +287,56 @@ def main():
 
 
 		width = 2
-		# axins = ax.inset_axes(inset)
-		# axins.spines['bottom'].set_linewidth(width)
-		# axins.spines['top'].set_linewidth(width)
-		# axins.spines['right'].set_linewidth(width)
-		# axins.spines['left'].set_linewidth(width)
-		# axins.tick_params(width=width)
-		# axins.grid(which='both', axis='both')
+		axins = ax.inset_axes(inset)
+		axins.spines['bottom'].set_linewidth(width)
+		axins.spines['top'].set_linewidth(width)
+		axins.spines['right'].set_linewidth(width)
+		axins.spines['left'].set_linewidth(width)
+		axins.tick_params(width=width)
+		axins.grid(which='both', axis='both')
 
 		ax.grid(True)
 		vert_lines = np.zeros(len(Ps))
 		yb, yu = 1, -1
 
+		logging.info(f'asymptotes: {asymptotes}')
+
 		for P_idx, P in enumerate(Ps):
-			decreasing_arr = means[P_idx, np.argmax(means[P_idx]):]
-			vert_lines[P_idx] = np.argmax(means[P_idx]) + np.argmax(decreasing_arr < 0.05 * np.max(means_maxs))
+			# vert_lines[P_idx] = np.argmax(means[P_idx]) + np.argmax(decreasing_arr < 0.5 * np.max(means_maxs))
+			# vert_line is where the curve is within 5% of the asymptote
+			vert_lines[P_idx] = np.argmax(np.abs(means[P_idx, N:] - np.min(asymptotes)) < 0.05 * np.min(asymptotes)) + N
+			if vert_lines[P_idx] == N:
+				# if the curve never reaches 5% of the asymptote, then take the last value
+				vert_lines[P_idx] = T - 1
+			logging.info(f'vertical line: {vert_lines[P_idx]}')
 
 			ax.plot(means[P_idx], marker=markers[P_idx], markevery=200, lw=2, linestyle='solid', color=colors[P_idx], label=labels[P_idx])
 			ax.axvline(vert_lines[P_idx], color=colors[P_idx], marker=markers[P_idx], markevery=0.05, linestyle='dashed', lw=2)
 			# ax.set_ylim(-0.01, 0.25)
 
-			# axins.plot(means[P_idx], linestyle='solid', color=colors[P_idx], label=labels[P_idx])
-			# axins.axvline(vert_lines[P_idx], color=colors[P_idx], linestyle='dashed')
+			axins.plot(means[P_idx], linestyle='solid', color=colors[P_idx], label=labels[P_idx])
+			axins.axvline(vert_lines[P_idx], color=colors[P_idx], linestyle='dashed')
 
 			if yb > means[P_idx, int(np.floor(vert_lines[P_idx]))]:
 				yb = means[P_idx, int(np.floor(vert_lines[P_idx]))]
 			if yu < means[P_idx, int(np.floor(vert_lines[P_idx]))]:
 				yu = means[P_idx, int(np.floor(vert_lines[P_idx]))]
 
-		logging.info(f'\n{np.array(list(zip(labels, vert_lines)))}')
+		# logging.info(f'\n{np.array(list(zip(labels, vert_lines)))}')
 		vert_lines = np.sort(vert_lines)
-		in_xl, in_xr, in_yb, in_yu = vert_lines[0] - 2, vert_lines[-2] + 2, yb - 0.00125, yu + 0.00125
+		in_xl, in_xr, in_yb, in_yu = vert_lines[0] - 1, vert_lines[-2] + 1, yb - 0.00125, yu + 0.00125
 
 		ax.fill_between((in_xl, in_xr), in_yb, in_yu, facecolor='black', alpha=0.2)
-		# axins.set_xlim((in_xl, in_xr))
-		# axins.set_ylim((in_yb, in_yu))
+		axins.set_xlim((in_xl, in_xr))
+		axins.set_ylim((in_yb, in_yu))
 
-		# con = ConnectionPatch(xyA=(in_xr, in_yu), coordsA=ax.transData, xyB=(in_xl, in_yb), coordsB=axins.transData, color='black')
-		# fig.add_artist(con)
+		con = ConnectionPatch(xyA=(in_xr, in_yu), coordsA=ax.transData, xyB=(in_xl, in_yb), coordsB=axins.transData, color='black')
+		fig.add_artist(con)
 
-		# ax.legend(bbox_to_anchor=(0.5, 1.05), loc='upper center', bbox_transform=fig.transFigure, ncols=3)
-		plt.savefig(f'data/img/svg/{networks[mat_idx].replace(" ", "-")}_snerr_competency.svg', format='svg', bbox_inches='tight')
-		plt.savefig(f'data/img/png/{networks[mat_idx].replace(" ", "-")}_snerr_competency.png', format='png', bbox_inches='tight')
+		ax.legend(bbox_to_anchor=(0.5, 1.05), loc='upper center', bbox_transform=fig.transFigure, ncols=3)
+		plt.savefig(f'data/img/svg/LMSC_TEST_{networks[mat_idx].replace(" ", "-")}_snerr_stage_{real_bandit_stage}.svg', format='svg', bbox_inches='tight')
+		plt.savefig(f'data/img/png/LMSC_TEST_{networks[mat_idx].replace(" ", "-")}_snerr_stage_{real_bandit_stage}.png', format='png', bbox_inches='tight')
+		plt.savefig(f'data/img/pdf/LMSC_TEST_{networks[mat_idx].replace(" ", "-")}_snerr_stage_{real_bandit_stage}.pdf', format='pdf', bbox_inches='tight')
 
 
 		fig, ax = plt.subplots()
@@ -271,12 +346,14 @@ def main():
 		# ax.legend()
 		fig.supxlabel('Timesteps')
 		fig.supylabel('Percent optimal action')
-		fig.suptitle(f'{networks[mat_idx].title()} network, {runs} runs, {T} timesteps, {N} arms, {A.shape[0]} agents')
+		# fig.suptitle(f'{networks[mat_idx].title()} network, {runs} runs, {T} timesteps, {N} arms, {A.shape[0]} agents')
 
 		# ax.set_xlim(4800, 5000)
 		# ax.set_ylim(0.9525, 0.9575)
 
-		plt.savefig(f'data/img/png/{networks[mat_idx].replace(" ", "-")}_percent_optimal_action_competency.png', format='png', bbox_inches='tight')
+		ax.legend(bbox_to_anchor=(0.5, 1.05), loc='upper center', bbox_transform=fig.transFigure, ncols=3)
+		plt.savefig(f'data/img/png/LMSC_TEST_{networks[mat_idx].replace(" ", "-")}_percent_optimal_action_stage_{real_bandit_stage}.png', format='png', bbox_inches='tight')
+		plt.savefig(f'data/img/pdf/LMSC_TEST_{networks[mat_idx].replace(" ", "-")}_percent_optimal_action_stage_{real_bandit_stage}.pdf', format='pdf', bbox_inches='tight')
 
 		fig.clear()
 		logging.info(f'finished experiments for {mat_idx}')
@@ -297,6 +374,10 @@ def run(runs: int, N: int, T: int, trueMeans: np.ndarray, P: np.ndarray, compete
 	f = lambda t : np.sqrt(np.log(t))
 	var = 1		# variance for the gaussian distribution behind each arm
 	M, _ = P.shape
+	competencies = np.ones(M)
+	# get the agent with the highest degree
+	degrees = np.array([np.count_nonzero(row) for row in P])
+	max_degree_agent = np.argmin(degrees)
 
 	G_eta = 1 - (eta ** 2) / 16
 	c0 = 2 * gamma / G_eta
@@ -330,6 +411,7 @@ def run(runs: int, N: int, T: int, trueMeans: np.ndarray, P: np.ndarray, compete
 						trueMeans[run, action] * (competencies[k] + np.random.randn()),
 						var / (competencies[k] * np.abs(np.random.randn()))
 					) if competencies[k] < 1 else np.random.normal(trueMeans[run, action], var / competencies[k])
+					rew[k, action] += np.random.randn()
 					reg[run, k, t] = best_arm - trueMeans[run, action]
 					xsi[k, action] += 1
 					if action == best_arm_idx:
@@ -354,6 +436,9 @@ def run(runs: int, N: int, T: int, trueMeans: np.ndarray, P: np.ndarray, compete
 						trueMeans[run, action] * (competencies[k] + np.random.randn()),
 						var / (competencies[k] * np.abs(np.random.randn()))
 					) if competencies[k] < 1 else np.random.normal(trueMeans[run, action], var / competencies[k])
+					# add noise to max degree agent
+					# if k == max_degree_agent:
+					rew[k, action] += np.random.randn()
 					reg[run, k, t] = best_arm - trueMeans[run, action]
 					xsi[k, action] += 1
 
@@ -361,6 +446,7 @@ def run(runs: int, N: int, T: int, trueMeans: np.ndarray, P: np.ndarray, compete
 
 					if action == best_arm_idx:
 						times_best_arm_selected[run, k] += 1
+
 
 			percent_optimal_action[run, :, t] = times_best_arm_selected[run, :] / (t + 1)
 
@@ -397,6 +483,9 @@ def max_degree(A):
 	W = I - alpha * L
 	rho = get_rho(W)
 	return W, rho
+
+def exp_decay(x, a, b, c):
+    return a * np.exp(-b * x) + c
 
 if __name__ == '__main__':
 	logging.basicConfig(filename='output_lmsc.log',filemode='w', format='%(asctime)s - %(message)s', level=logging.INFO)

@@ -298,6 +298,8 @@ def generateP(A, kappa):
     P = I - (kappa/dmax) * L
     return P
 
+def lmsc_constant_weight(A):
+    return np.eye(A.shape[0]) - (1 / A.shape[0]) * laplacian(A, normed=False)
 
 def main():
     # example 1

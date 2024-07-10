@@ -9,7 +9,7 @@ from numba import njit, prange
 from tqdm import tqdm
 
 from graph_optimization import fastest_averaging_constant_weight
-from lmsc import coopucb2
+from other_mamabs import coopucb2
 
 
 @njit
